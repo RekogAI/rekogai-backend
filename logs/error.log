@@ -390,3 +390,126 @@
 [31m    at next (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/express/lib/router/index.js:260:14)[39m
 [31m    at jsonParser (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/body-parser/lib/types/json.js:104:7)[39m
 [31m    at Layer.handle [as handle_request] (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/express/lib/router/layer.js:95:5)[39m
+2025-01-19 10:28:53:2853 [31merror[39m: [31mError during sign-in:[39m
+2025-01-19 10:28:53:2853 [31merror[39m: [31mNotAuthorizedException: Incorrect username or password.[39m
+[31m    at de_NotAuthorizedExceptionRes (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4700:21)[39m
+[31m    at de_CommandError (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4342:19)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-serde/dist-cjs/index.js:35:20[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/core/dist-cjs/index.js:167:18[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-retry/dist-cjs/index.js:321:38[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:33:22[39m
+[31m    at async CognitoModel.signIn (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/CognitoModel.js:104:24)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:23:23[39m
+2025-01-19 13:08:20:820 [31merror[39m: [31mError creating Users table:[39m
+2025-01-19 13:08:20:820 [31merror[39m: [31mError initializing tables:[39m
+2025-01-19 13:08:20:820 [31merror[39m: [31mResourceInUseException: Table already exists: Users[39m
+[31m    at de_ResourceInUseExceptionRes (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-dynamodb/dist-cjs/index.js:2552:21)[39m
+[31m    at de_CommandError (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-dynamodb/dist-cjs/index.js:2242:19)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-serde/dist-cjs/index.js:35:20[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/core/dist-cjs/index.js:167:18[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-retry/dist-cjs/index.js:321:38[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-dynamodb/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:33:22[39m
+[31m    at async DynamoDBModel.createUsersTable (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/DynamoDBModel.js:32:22)[39m
+[31m    at async DynamoDBModel.initializeTables (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/DynamoDBModel.js:108:7)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:11:23[39m
+2025-01-19 13:44:02:442 [31merror[39m: [31mError during sign-up:[39m
+2025-01-19 13:44:02:442 [31merror[39m: [31mUsernameExistsException: User already exists[39m
+[31m    at de_UsernameExistsExceptionRes (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4862:21)[39m
+[31m    at de_CommandError (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4390:19)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-serde/dist-cjs/index.js:35:20[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/core/dist-cjs/index.js:167:18[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-retry/dist-cjs/index.js:321:38[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:33:22[39m
+[31m    at async CognitoModel.signUp (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/CognitoModel.js:54:24)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:16:23[39m
+2025-01-19 13:47:08:478 [31merror[39m: [31mError during sign-up:[39m
+2025-01-19 13:47:08:478 [31merror[39m: [31mUsernameExistsException: User already exists[39m
+[31m    at de_UsernameExistsExceptionRes (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4862:21)[39m
+[31m    at de_CommandError (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4390:19)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-serde/dist-cjs/index.js:35:20[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/core/dist-cjs/index.js:167:18[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-retry/dist-cjs/index.js:321:38[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:33:22[39m
+[31m    at async CognitoModel.signUp (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/CognitoModel.js:54:24)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:16:23[39m
+2025-01-19 13:47:16:4716 [31merror[39m: [31mError during sign-up:[39m
+2025-01-19 13:47:16:4716 [31merror[39m: [31mUsernameExistsException: User already exists[39m
+[31m    at de_UsernameExistsExceptionRes (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4862:21)[39m
+[31m    at de_CommandError (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4390:19)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-serde/dist-cjs/index.js:35:20[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/core/dist-cjs/index.js:167:18[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-retry/dist-cjs/index.js:321:38[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:33:22[39m
+[31m    at async CognitoModel.signUp (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/CognitoModel.js:54:24)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:16:23[39m
+2025-01-19 13:57:28:5728 [31merror[39m: [31mError during sign-up:[39m
+2025-01-19 13:57:28:5728 [31merror[39m: [31mReferenceError: result is not defined[39m
+[31m    at CognitoModel.signUp (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/CognitoModel.js:58:7)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:16:23[39m
+2025-01-19 14:12:09:129 [31merror[39m: [31mError during confirmation:[39m
+2025-01-19 14:12:09:129 [31merror[39m: [31mExpiredCodeException: Invalid code provided, please request a code again.[39m
+[31m    at de_ExpiredCodeExceptionRes (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4556:21)[39m
+[31m    at de_CommandError (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4417:19)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-serde/dist-cjs/index.js:35:20[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/core/dist-cjs/index.js:167:18[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-retry/dist-cjs/index.js:321:38[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:33:22[39m
+[31m    at async CognitoModel.confirmSignUp (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/CognitoModel.js:78:37)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:21:23[39m
+2025-01-20 09:03:37:337 [31merror[39m: [31mError during sign-up:[39m
+2025-01-20 09:03:37:337 [31merror[39m: [31mUsernameExistsException: User already exists[39m
+[31m    at de_UsernameExistsExceptionRes (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4862:21)[39m
+[31m    at de_CommandError (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4390:19)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-serde/dist-cjs/index.js:35:20[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/core/dist-cjs/index.js:167:18[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-retry/dist-cjs/index.js:321:38[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:33:22[39m
+[31m    at async CognitoModel.signUp (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/CognitoModel.js:56:24)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:16:23[39m
+2025-01-20 09:04:40:440 [31merror[39m: [31mReferenceError: QueryCommand is not defined[39m
+[31m    at UserModel.getUserByUsername (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/UserModel.js:107:21)[39m
+[31m    at CognitoModel.signIn (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/CognitoModel.js:110:42)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:26:23[39m
+2025-01-20 09:05:07:57 [31merror[39m: [31mError fetching user by email:[39m
+2025-01-20 09:05:07:57 [31merror[39m: [31mReferenceError: AWS is not defined[39m
+[31m    at UserModel.getUserByUsername (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/UserModel.js:114:11)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:26:23[39m
+2025-01-20 09:10:27:1027 [31merror[39m: [31mError during confirmation:[39m
+2025-01-20 09:10:27:1027 [31merror[39m: [31mExpiredCodeException: Invalid code provided, please request a code again.[39m
+[31m    at de_ExpiredCodeExceptionRes (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4556:21)[39m
+[31m    at de_CommandError (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/dist-cjs/index.js:4417:19)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-serde/dist-cjs/index.js:35:20[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/core/dist-cjs/index.js:167:18[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-retry/dist-cjs/index.js:321:38[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-cognito-identity-provider/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:33:22[39m
+[31m    at async CognitoModel.confirmSignUp (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/CognitoModel.js:80:37)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:21:23[39m
+2025-01-20 09:21:55:2155 [31merror[39m: [31mError creating bucket:[39m
+2025-01-20 09:21:55:2155 [31merror[39m: [31mReferenceError: PutItemCommand is not defined[39m
+[31m    at DynamoDBModel.createBucket (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/DynamoDBModel.js:159:51)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/controllers/userController/index.js:11:23[39m
+2025-01-20 09:22:22:2222 [31merror[39m: [31mThe bucket "jayesh-personal-bucket" already exists in this AWS account.[39m
+2025-01-20 09:22:22:2222 [31merror[39m: [31mError creating bucket:[39m
+2025-01-20 09:22:22:2222 [31merror[39m: [31mBucketAlreadyOwnedByYou: Your previous request to create the named bucket succeeded and you already own it.[39m
+[31m    at de_BucketAlreadyOwnedByYouRes (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-s3/dist-cjs/index.js:4955:21)[39m
+[31m    at de_CommandError (/home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/client-s3/dist-cjs/index.js:4905:19)[39m
+[31m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-serde/dist-cjs/index.js:35:20[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/middleware-sdk-s3/dist-cjs/index.js:483:18[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@smithy/middleware-retry/dist-cjs/index.js:321:38[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/middleware-sdk-s3/dist-cjs/index.js:109:22[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/middleware-sdk-s3/dist-cjs/index.js:136:14[39m
+[31m    at async /home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:33:22[39m
+[31m    at async S3Model.createBucket (file:///home/shafi/Desktop/Personal_Desktop/Projects/RekogAI/rekogai-backend/src/models/S3Model.js:38:28)[39m

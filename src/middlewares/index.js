@@ -1,11 +1,15 @@
 import Logger from "../lib/Logger.js";
 import { performance } from "perf_hooks";
+import { CognitoJwtVerifier } from "aws-jwt-verify";
+import configObj from "../config.js";
+const { config, ENVIRONMENT } = configObj;
 
-export const commonMiddleware = (req, res, next) => {
-  console.log("Do some middleware thing");
-  next();
-};
-
+// Verifier that expects valid access tokens:
+const verifier = CognitoJwtVerifier.create({
+  userPoolId: config[ENVIRONMENT].COGNITO_USER_POOL_ID,
+  tokenUse: "access",
+  clientId: config[ENVIRONMENT].COGNITO_CLIENT_ID,
+});
 
 export const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -40,16 +44,36 @@ export const handleApiResponse = (
 };
 
 export const logRequest = (req, res, next) => {
-  const start = performance.now(); // Start the timer
+  const start = performance.now();
 
   // Capture the response status code after the response is finished
   res.on("finish", () => {
-    const duration = performance.now() - start; // Calculate the duration
+    const duration = performance.now() - start;
     Logger.info(
       `Request ${req.method} ${req.originalUrl} ${res.statusCode} - ${duration.toFixed(2)}ms`
     );
   });
 
-  // Proceed to the next middleware/route handler
   next();
+};
+
+export const sessionMiddleware = async (req, res, next) => {
+  try {
+    const JWT_TOKEN = req.body?.jwtToken;
+    const payload = await verifier.verify(JWT_TOKEN);
+
+    console.log("Token is valid. Payload:", payload);
+    next();
+  } catch {
+    console.log("Token not valid!");
+    res.status(403).json({
+      success: false,
+      status: 403,
+      message: "Access forbidden invalid token",
+      data: null,
+      error: {
+        details: "Access forbidden invalid token",
+      },
+    });
+  }
 };

@@ -11,6 +11,7 @@ import {
 import configObj from "../config.js";
 const { config, ENVIRONMENT } = configObj;
 import Logger from "../lib/Logger.js";
+import { changeCasing } from "../utility/index.js";
 
 // Initialize S3 Client Configuration
 const s3Config = {
@@ -33,18 +34,18 @@ class S3Model {
    * Create an Amazon S3 bucket.
    * @param {string} bucketName - The name of the bucket to create.
    */
-  async createBucket(reqParams) {
-    const { bucketName } = reqParams;
+  async createBucket({ bucketName }) {
     try {
-      const { Location } = await this.client.send(
+      const bucketCreationResponse = await this.client.send(
         new CreateBucketCommand({ Bucket: bucketName })
       );
-      Logger.info("S3Model  createBucket  Location", Location);
+      Logger.info("S3Model  createBucket  Location", bucketCreationResponse);
 
       await waitUntilBucketExists(
         { client: this.client },
         { Bucket: bucketName }
       );
+      const { Location } = bucketCreationResponse || {};
       Logger.info(`Bucket created successfully with location: ${Location}`);
       return Location;
     } catch (error) {
@@ -76,6 +77,8 @@ class S3Model {
         { Bucket: bucketName }
       );
       Logger.info(`Bucket "${bucketName}" deleted successfully.`);
+
+      return { successMessage: "Bucket deleted successfully", statusCode: 200 };
     } catch (error) {
       Logger.error("Error deleting bucket:", error);
       throw error;
@@ -85,11 +88,17 @@ class S3Model {
   /**
    * List all Amazon S3 buckets in the account.
    */
-  async listBuckets() {
+  async listBuckets({ userId }) {
     try {
-      const { Buckets } = await this.client.send(new ListBucketsCommand());
+      const listBucketsResponse = await this.client.send(
+        new ListBucketsCommand()
+      );
+
+      const { Buckets } = listBucketsResponse || {};
+
       Logger.info("Buckets:", Buckets);
-      return Buckets;
+
+      return changeCasing(listBucketsResponse);
     } catch (error) {
       Logger.error("Error listing buckets:", error);
       throw error;
