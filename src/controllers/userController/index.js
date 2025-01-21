@@ -8,7 +8,7 @@ const cognitoModelInstance = new CognitoModel();
 const dynamoDBModelInstance = new DynamoDBModel();
 
 export const listBucketsRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await s3ModelInstance.listBuckets(req.query);
+  const apiResponse = await s3ModelInstance.listUserBuckets(req.query);
   return handleApiResponse(res, apiResponse);
 });
 

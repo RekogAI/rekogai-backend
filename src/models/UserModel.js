@@ -45,7 +45,7 @@ class UserModel {
     const params = {
       TableName: this.tableName,
       Item: {
-        UserID: { S: userId },
+        userId: { S: userId },
         email: { S: email },
         createdAt: { S: new Date().toISOString() },
       },

@@ -26,21 +26,18 @@ class DynamoDBModel {
     this.s3Model = new S3Model();
   }
 
-  /**
-   * Create Users Table with GSI for email
-   */
   async createUsersTable() {
     const params = {
       TableName: TABLE_NAME.USERS,
-      KeySchema: [{ AttributeName: "UserID", KeyType: "HASH" }], // Partition Key
+      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }], // Partition Key
       AttributeDefinitions: [
-        { AttributeName: "UserID", AttributeType: "S" }, // Primary key
-        { AttributeName: "Email", AttributeType: "S" }, // GSI attribute
+        { AttributeName: "userId", AttributeType: "S" }, // Primary Key
+        { AttributeName: "email", AttributeType: "S" }, // GSI attribute
       ],
       GlobalSecondaryIndexes: [
         {
-          IndexName: "EmailIndex", // GSI name
-          KeySchema: [{ AttributeName: "Email", KeyType: "HASH" }], // Partition Key for GSI
+          IndexName: "emailIndex", // GSI name
+          KeySchema: [{ AttributeName: "email", KeyType: "HASH" }], // Partition Key for GSI
           Projection: {
             ProjectionType: "ALL", // Include all attributes in the index
           },
@@ -59,22 +56,19 @@ class DynamoDBModel {
     }
   }
 
-  /**
-   * Create Buckets Table
-   */
   async createBucketsTable() {
     const params = {
       TableName: TABLE_NAME.BUCKETS,
-      KeySchema: [{ AttributeName: "BucketID", KeyType: "HASH" }], // Partition Key
+      KeySchema: [{ AttributeName: "bucketId", KeyType: "HASH" }], // Partition Key
       AttributeDefinitions: [
-        { AttributeName: "BucketID", AttributeType: "S" },
-        { AttributeName: "UserID", AttributeType: "S" },
+        { AttributeName: "bucketId", AttributeType: "S" },
+        { AttributeName: "userId", AttributeType: "S" },
       ],
       BillingMode: "PAY_PER_REQUEST",
       GlobalSecondaryIndexes: [
         {
-          IndexName: "UserIDIndex",
-          KeySchema: [{ AttributeName: "UserID", KeyType: "HASH" }],
+          IndexName: "userIdIndex",
+          KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
           Projection: { ProjectionType: "ALL" },
         },
       ],
@@ -90,22 +84,19 @@ class DynamoDBModel {
     }
   }
 
-  /**
-   * Create Photos Table
-   */
   async createPhotosTable() {
     const params = {
       TableName: TABLE_NAME.PHOTOS,
-      KeySchema: [{ AttributeName: "PhotoID", KeyType: "HASH" }], // Partition Key
+      KeySchema: [{ AttributeName: "photoId", KeyType: "HASH" }], // Partition Key
       AttributeDefinitions: [
-        { AttributeName: "PhotoID", AttributeType: "S" },
-        { AttributeName: "BucketID", AttributeType: "S" },
+        { AttributeName: "photoId", AttributeType: "S" },
+        { AttributeName: "bucketId", AttributeType: "S" },
       ],
       BillingMode: "PAY_PER_REQUEST",
       GlobalSecondaryIndexes: [
         {
-          IndexName: "BucketIDIndex",
-          KeySchema: [{ AttributeName: "BucketID", KeyType: "HASH" }],
+          IndexName: "bucketIdIndex",
+          KeySchema: [{ AttributeName: "bucketId", KeyType: "HASH" }],
           Projection: { ProjectionType: "ALL" },
         },
       ],
@@ -142,7 +133,7 @@ class DynamoDBModel {
    * @param {string} bucketName - Name of the bucket.
    * @returns {Promise<object>} - DynamoDB PutItem response.
    */
-  async createBucket({ userID, bucketName }) {
+  async createBucket({ userId, bucketName }) {
     try {
       const bucketLocation = await this.s3Model.createBucket({
         bucketName,
@@ -150,19 +141,19 @@ class DynamoDBModel {
 
       const isBucketCreated = !!bucketLocation;
       if (isBucketCreated) {
-        const bucketID = generateUUID();
+        const bucketId = generateUUID();
         const params = {
           TableName: TABLE_NAME.BUCKETS,
           Item: {
-            BucketID: { S: bucketID },
-            UserID: { S: userID },
-            BucketName: { S: bucketName },
+            bucketId: { S: bucketId },
+            userId: { S: userId },
+            bucketName: { S: bucketName },
             CreatedAt: { S: moment().format("DD/MM/YYYY HH:mm:ss") },
           },
         };
         const result = await this.client.send(new PutItemCommand(params));
         Logger.info("Bucket created successfully.", result);
-        return { bucketLocation, bucketId: bucketID };
+        return { bucketLocation, bucketId: bucketId };
       }
 
       return bucketLocation;
