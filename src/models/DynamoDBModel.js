@@ -10,11 +10,13 @@ import S3Model from "./S3Model.js";
 import { TABLE_NAME } from "../utility/constants.js";
 import { generateUUID } from "../utility/index.js";
 import moment from "moment";
+import RekognitionModel from "./RekognitionModel.js";
 
 class DynamoDBModel {
   constructor() {
     this.client = new DynamoDBClient(config[ENVIRONMENT].AWS_SDK_CONFIG);
     this.s3Model = new S3Model();
+    this.rekognitionClient = new RekognitionModel();
   }
 
   async createUsersTable() {
@@ -133,18 +135,21 @@ class DynamoDBModel {
       const isBucketCreated = !!location;
       if (isBucketCreated) {
         const bucketId = generateUUID();
+        const { collectionId } =
+          await this.rekognitionClient.createCollection();
         const params = {
           TableName: TABLE_NAME.BUCKETS,
           Item: {
             bucketId: { S: bucketId },
             userId: { S: userId },
             bucketName: { S: bucketName },
-            CreatedAt: { S: moment().format("DD/MM/YYYY HH:mm:ss") },
+            createdAt: { S: moment().format("DD/MM/YYYY HH:mm:ss") },
+            collectionId: { S: collectionId },
           },
         };
         const result = await this.client.send(new PutItemCommand(params));
         Logger.info("Bucket created successfully.", result);
-        return { bucketId, bucketLocation: location, bucketName };
+        return { bucketId, bucketLocation: location, bucketName, collectionId };
       }
 
       return bucketLocation;
