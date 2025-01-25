@@ -1,17 +1,17 @@
 import express from "express";
-import { commonMiddleware } from "../middlewares/index.js"; // Ensure the path and file extension are correct
-// import { userController } from "../src/controllers/index.js";
+import { sessionMiddleware } from "../middlewares/index.js";
 import {
   confirmForgotPasswordRoute,
   createBucketRoute,
   forgotPasswordRoute,
+  listBucketsRoute,
   refreshSessionRoute,
   signInRoute,
   signUpRoute,
   verifySignupRoute,
 } from "../controllers/userController/index.js";
-import { getIndexPageRoute } from "../controllers/index.js";
 import bodyParser from "body-parser";
+import { generatePreSignedURLRoute } from "../controllers/s3Controller/index.js";
 
 const createRouter = () => {
   const router = express.Router();
@@ -24,11 +24,18 @@ const createRouter = () => {
   router.post("/signin", signInRoute);
   router.post("/forgotPassword", forgotPasswordRoute);
   router.post("/confirmForgotPassword", confirmForgotPasswordRoute);
-  router.post("/refreshSession", refreshSessionRoute);
+  router.post("/refreshSession", sessionMiddleware, refreshSessionRoute);
 
-  
+  // User actions
+  router.post("/createBucket", sessionMiddleware, createBucketRoute);
+  router.get("/listBuckets", sessionMiddleware, listBucketsRoute);
 
-  router.post("/createBucket", createBucketRoute);
+  // Add photos to a bucket
+  router.post(
+    "/generatePreSignedURL",
+    sessionMiddleware,
+    generatePreSignedURLRoute
+  );
 
   return router;
 };

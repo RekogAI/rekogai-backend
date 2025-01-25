@@ -9,14 +9,16 @@
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.731.0",
+    "@aws-sdk/client-dynamodb": "^3.731.1",
     "@aws-sdk/client-s3": "^3.723.0",
-    "@aws-sdk/client-ses": "^3.731.1",
-    "@aws-sdk/client-sns": "^3.731.1",
+    "@aws-sdk/s3-request-presigner": "^3.735.0",
+    "aws-jwt-verify": "^5.0.0",
     "aws-sdk": "^2.1692.0",
     "body-parser": "^1.20.3",
     "cookie-parser": "~1.4.4",
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
+    "moment": "^2.30.1",
     "uuid": "^11.0.4",
     "winston": "^3.17.0"
   },
