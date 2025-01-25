@@ -33,12 +33,24 @@ export const handleApiResponse = (
     });
   }
 
+  let sortedResult = result;
+
+  // If the result is an object, sort its keys
+  if (result && typeof result === "object" && !Array.isArray(result)) {
+    sortedResult = Object.keys(result)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = result[key];
+        return acc;
+      }, {});
+  }
+
   // Otherwise, return the success response with the data
   return res.status(200).json({
     success: true,
     status: 200,
     message: successMessage,
-    data: result,
+    data: sortedResult,
     error: null,
   });
 };
@@ -60,12 +72,10 @@ export const logRequest = (req, res, next) => {
 export const sessionMiddleware = async (req, res, next) => {
   try {
     const JWT_TOKEN = req.body?.jwtToken;
-    const payload = await verifier.verify(JWT_TOKEN);
-
-    console.log("Token is valid. Payload:", payload);
+    await verifier.verify(JWT_TOKEN);
     next();
   } catch {
-    console.log("Token not valid!");
+    console.log("Token not valid!", pa);
     res.status(403).json({
       success: false,
       status: 403,

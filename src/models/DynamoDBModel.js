@@ -135,11 +135,11 @@ class DynamoDBModel {
    */
   async createBucket({ userId, bucketName }) {
     try {
-      const bucketLocation = await this.s3Model.createBucket({
+      const { location } = await this.s3Model.createBucket({
         bucketName,
       });
 
-      const isBucketCreated = !!bucketLocation;
+      const isBucketCreated = !!location;
       if (isBucketCreated) {
         const bucketId = generateUUID();
         const params = {
@@ -153,7 +153,7 @@ class DynamoDBModel {
         };
         const result = await this.client.send(new PutItemCommand(params));
         Logger.info("Bucket created successfully.", result);
-        return { bucketLocation, bucketId: bucketId };
+        return { bucketId, bucketLocation: location, bucketName };
       }
 
       return bucketLocation;

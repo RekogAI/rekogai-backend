@@ -11,6 +11,7 @@ import {
   verifySignupRoute,
 } from "../controllers/userController/index.js";
 import bodyParser from "body-parser";
+import { generatePreSignedURLRoute } from "../controllers/s3Controller/index.js";
 
 const createRouter = () => {
   const router = express.Router();
@@ -28,6 +29,13 @@ const createRouter = () => {
   // User actions
   router.post("/createBucket", sessionMiddleware, createBucketRoute);
   router.get("/listBuckets", sessionMiddleware, listBucketsRoute);
+
+  // Add photos to a bucket
+  router.post(
+    "/generatePreSignedURL",
+    sessionMiddleware,
+    generatePreSignedURLRoute
+  );
 
   return router;
 };
