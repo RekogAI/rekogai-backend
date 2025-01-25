@@ -11,39 +11,30 @@ import { TABLE_NAME } from "../utility/constants.js";
 import { generateUUID } from "../utility/index.js";
 import moment from "moment";
 
-// Initialize Cognito Client Configuration
-const dynamoDBConfig = {
-  region: AWS_REGION,
-  credentials: {
-    accessKeyId: config[ENVIRONMENT].AWS_ACCESS_KEY_ID,
-    secretAccessKey: config[ENVIRONMENT].AWS_SECRET_ACCESS_KEY,
-  },
-};
-
 class DynamoDBModel {
   constructor() {
-    this.client = new DynamoDBClient(dynamoDBConfig);
+    this.client = new DynamoDBClient(config[ENVIRONMENT].AWS_SDK_CONFIG);
     this.s3Model = new S3Model();
   }
 
   async createUsersTable() {
     const params = {
       TableName: TABLE_NAME.USERS,
-      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }], // Partition Key
+      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
       AttributeDefinitions: [
-        { AttributeName: "userId", AttributeType: "S" }, // Primary Key
-        { AttributeName: "email", AttributeType: "S" }, // GSI attribute
+        { AttributeName: "userId", AttributeType: "S" },
+        { AttributeName: "email", AttributeType: "S" },
       ],
       GlobalSecondaryIndexes: [
         {
-          IndexName: "emailIndex", // GSI name
-          KeySchema: [{ AttributeName: "email", KeyType: "HASH" }], // Partition Key for GSI
+          IndexName: "emailIndex",
+          KeySchema: [{ AttributeName: "email", KeyType: "HASH" }],
           Projection: {
-            ProjectionType: "ALL", // Include all attributes in the index
+            ProjectionType: "ALL",
           },
         },
       ],
-      BillingMode: "PAY_PER_REQUEST", // Use on-demand pricing
+      BillingMode: "PAY_PER_REQUEST",
     };
 
     try {
@@ -59,7 +50,7 @@ class DynamoDBModel {
   async createBucketsTable() {
     const params = {
       TableName: TABLE_NAME.BUCKETS,
-      KeySchema: [{ AttributeName: "bucketId", KeyType: "HASH" }], // Partition Key
+      KeySchema: [{ AttributeName: "bucketId", KeyType: "HASH" }],
       AttributeDefinitions: [
         { AttributeName: "bucketId", AttributeType: "S" },
         { AttributeName: "userId", AttributeType: "S" },
@@ -87,7 +78,7 @@ class DynamoDBModel {
   async createPhotosTable() {
     const params = {
       TableName: TABLE_NAME.PHOTOS,
-      KeySchema: [{ AttributeName: "photoId", KeyType: "HASH" }], // Partition Key
+      KeySchema: [{ AttributeName: "photoId", KeyType: "HASH" }],
       AttributeDefinitions: [
         { AttributeName: "photoId", AttributeType: "S" },
         { AttributeName: "bucketId", AttributeType: "S" },

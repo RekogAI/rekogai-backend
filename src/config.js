@@ -10,6 +10,13 @@ const config = {
     AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     COGNITO_USER_POOL_ID: process.env.COGNITO_USER_POOL_ID,
     COGNITO_CLIENT_ID: process.env.COGNITO_CLIENT_ID,
+    AWS_SDK_CONFIG: {
+      region: AWS_REGION,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      },
+    },
   },
 };
 

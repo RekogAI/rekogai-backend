@@ -27,18 +27,10 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import moment from "moment";
 
-const s3Config = {
-  region: AWS_REGION,
-  credentials: {
-    accessKeyId: config[ENVIRONMENT].AWS_ACCESS_KEY_ID,
-    secretAccessKey: config[ENVIRONMENT].AWS_SECRET_ACCESS_KEY,
-  },
-};
-
 class S3Model {
   constructor() {
-    this.client = new S3Client(s3Config);
-    this.dynamoClient = new DynamoDBClient(s3Config);
+    this.client = new S3Client(config[ENVIRONMENT].AWS_SDK_CONFIG);
+    this.dynamoClient = new DynamoDBClient(config[ENVIRONMENT].AWS_SDK_CONFIG);
   }
 
   async createBucket({ bucketName }) {
