@@ -105,6 +105,36 @@ class DynamoDBModel {
     }
   }
 
+  async createFacesTable() {
+    const params = {
+      TableName: TABLE_NAME.FACES,
+      AttributeDefinitions: [
+        { AttributeName: "faceId", AttributeType: "S" },
+        { AttributeName: "collectionId", AttributeType: "S" },
+      ],
+      KeySchema: [{ AttributeName: "faceId", KeyType: "HASH" }],
+      GlobalSecondaryIndexes: [
+        {
+          IndexName: "collectionIdIndex",
+          KeySchema: [{ AttributeName: "collectionId", KeyType: "HASH" }],
+          Projection: {
+            ProjectionType: "ALL",
+          },
+        },
+      ],
+      BillingMode: "PAY_PER_REQUEST",
+    };
+
+    try {
+      const result = await this.client.send(new CreateTableCommand(params));
+      Logger.info("Indexed Faces table created successfully.", result);
+      return result;
+    } catch (error) {
+      Logger.error("Error creating Faces table:", error.message);
+      throw error;
+    }
+  }
+
   /**
    * Initialize all tables
    */

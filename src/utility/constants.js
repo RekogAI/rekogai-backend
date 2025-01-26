@@ -2,6 +2,7 @@ export const TABLE_NAME = {
   BUCKETS: "Buckets",
   USERS: "Users",
   PHOTOS: "Photos",
+  FACES: "Faces",
 };
 
 export const S3_OBJECT_UPLOAD_STATUS = {

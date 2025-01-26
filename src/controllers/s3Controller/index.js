@@ -14,3 +14,4 @@ export const createAlbumsRoute = asyncHandler(async (req, res) => {
   const apiResponse = await rekognitionInstance.groupFacesIntoAlbums(req.body);
   return handleApiResponse(res, apiResponse);
 });
+
