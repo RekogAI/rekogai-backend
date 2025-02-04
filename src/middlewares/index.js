@@ -3,6 +3,7 @@ import { performance } from "perf_hooks";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import configObj from "../config.js";
 const { config, ENVIRONMENT } = configObj;
+import jwtDecode from "jwt-decode";
 
 // Verifier that expects valid access tokens:
 const verifier = CognitoJwtVerifier.create({
@@ -69,21 +70,31 @@ export const logRequest = (req, res, next) => {
   next();
 };
 
+export const authFailed = (res, message, details) => {
+  return res.status(403).json({
+    success: false,
+    status: 403,
+    message: message,
+    data: null,
+    error: {
+      details: details,
+    },
+  });
+};
+
 export const sessionMiddleware = async (req, res, next) => {
   try {
-    const JWT_TOKEN = req.body?.jwtToken;
+    const JWT_TOKEN = req.cookies?.accessToken;
+    if (!JWT_TOKEN) {
+      return authFailed(res, "Auth token is missing", "Auth token is missing");
+    }
+
+    const decoded = jwtDecode(JWT_TOKEN);
+    req.body.userId = decoded.userId;
+
     await verifier.verify(JWT_TOKEN);
     next();
-  } catch {
-    console.log("Token not valid!", pa);
-    res.status(403).json({
-      success: false,
-      status: 403,
-      message: "Access forbidden invalid token",
-      data: null,
-      error: {
-        details: "Access forbidden invalid token",
-      },
-    });
+  } catch (error) {
+    return authFailed(res, "Auth token is invalid", error);
   }
 };

@@ -24,11 +24,13 @@ export const signUpRoute = asyncHandler(async (req, res) => {
 
 export const verifySignupRoute = asyncHandler(async (req, res) => {
   const apiResponse = await cognitoModelInstance.confirmSignUp(req.body);
+  setCookies(res, apiResponse);
   return handleApiResponse(res, apiResponse);
 });
 
 export const signInRoute = asyncHandler(async (req, res) => {
   const apiResponse = await cognitoModelInstance.signIn(req.body);
+  setCookies(res, apiResponse);
   return handleApiResponse(res, apiResponse);
 });
 
@@ -48,3 +50,28 @@ export const refreshSessionRoute = asyncHandler(async (req, res) => {
   const apiResponse = await cognitoModelInstance.refreshSession(req.body);
   return handleApiResponse(res, apiResponse);
 });
+
+const setCookies = (res, apiResponse) => {
+  const { idToken, accessToken, refreshToken } = apiResponse?.userAuth || {};
+
+  res.cookie("idToken", idToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Strict",
+    maxAge: 3600 * 1000, // 1 hour
+  });
+
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Strict",
+    maxAge: 3600 * 1000, // 1 hour
+  });
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Strict",
+    maxAge: 3600 * 1000, // 1 hour
+  });
+};
