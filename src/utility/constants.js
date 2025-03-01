@@ -1,8 +1,8 @@
 export const TABLE_NAME = {
-  BUCKETS: "Buckets",
   USERS: "Users",
-  PHOTOS: "Photos",
+  IMAGES: "Images",
   FACES: "Faces",
+  ALBUMS: "Albums",
 };
 
 export const S3_OBJECT_UPLOAD_STATUS = {
