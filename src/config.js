@@ -7,19 +7,19 @@ const AWS_REGION = process.env.AWS_REGION;
 const config = {
   development: {
     POSTGRES_CONFIG: {
-      database: "myapp_db", // Replace with your database name
-      username: "admin", // Replace with your RDS username
-      password: "your_secure_password", // Replace with your RDS password
-      host: "myapp-rds-instance.abc123xyz456.us-east-1.rds.amazonaws.com", // Replace with your RDS endpoint
-      port: 5432, // Default PostgreSQL port
-      dialect: "postgres", // Required for Sequelize
+      DB_NAME: process.env.DB_NAME,
+      DB_USER: process.env.DB_USER,
+      DB_PASSWORD: process.env.DB_PASSWORD,
+      DB_HOST: process.env.DB_HOST,
+      DB_PORT: process.env.DB_PORT,
+      dialect: "postgres",
       pool: {
-        max: 5, // Maximum number of connections in pool
-        min: 0, // Minimum number of connections in pool
-        idle: 10000, // Time (ms) before a connection is closed if idle
+        max: 5,
+        min: 0,
+        idle: 10000,
       },
       ssl: {
-        rejectUnauthorized: false, // Set to true if you have a valid CA certificate
+        rejectUnauthorized: false,
       },
     },
     AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
