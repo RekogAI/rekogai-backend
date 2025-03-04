@@ -14,22 +14,10 @@ import AWS from "aws-sdk";
 
 const { config, ENVIRONMENT, AWS_REGION } = configObj;
 
-// Initialize DynamoDB Client Configuration
-const userModelConfig = {
-  region: AWS_REGION,
-  credentials: {
-    accessKeyId: config[ENVIRONMENT].AWS_ACCESS_KEY_ID,
-    secretAccessKey: config[ENVIRONMENT].AWS_SECRET_ACCESS_KEY,
-  },
-};
-
-/**
- * UserModel - Contains methods for interacting with DynamoDB to manage users.
- */
 class UserModel {
   constructor() {
-    this.client = new DynamoDBClient(userModelConfig);
-    this.tableName = TABLE_NAME.USERS; // Your DynamoDB table name
+    this.client = new DynamoDBClient(config[ENVIRONMENT].AWS_SDK_CONFIG);
+    this.tableName = TABLE_NAME.USERS;
   }
 
   /**

@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "start": "node ./bin/www",
-    "dev": "nodemon ./bin/www"
+    "dev": "nodemon --legacy-watch ./bin/www"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.731.0",
     "@aws-sdk/client-dynamodb": "^3.731.1",
+    "@aws-sdk/client-rekognition": "^3.734.0",
     "@aws-sdk/client-s3": "^3.723.0",
     "@aws-sdk/s3-request-presigner": "^3.735.0",
     "aws-jwt-verify": "^5.0.0",
@@ -18,7 +19,9 @@
     "cookie-parser": "~1.4.4",
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
-    "moment": "^2.30.1",
+    "pg": "^8.13.3",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.5",
     "uuid": "^11.0.4",
     "winston": "^3.17.0"
   },

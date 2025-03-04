@@ -6,24 +6,18 @@ import {
   ForgotPasswordCommand,
   ConfirmForgotPasswordCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import configObj from "../config.js";
 import Logger from "../lib/Logger.js";
 import UserModel from "./UserModel.js";
 import { changeCasing } from "../utility/index.js";
 
+import configObj from "../config.js";
 const { config, ENVIRONMENT, AWS_REGION } = configObj;
-
-const cognitoConfig = {
-  region: AWS_REGION,
-  credentials: {
-    accessKeyId: config[ENVIRONMENT].AWS_ACCESS_KEY_ID,
-    secretAccessKey: config[ENVIRONMENT].AWS_SECRET_ACCESS_KEY,
-  },
-};
 
 class CognitoModel {
   constructor() {
-    this.client = new CognitoIdentityProviderClient(cognitoConfig);
+    this.client = new CognitoIdentityProviderClient(
+      config[ENVIRONMENT].AWS_SDK_CONFIG
+    );
     this.userPoolId = config[ENVIRONMENT].COGNITO_USER_POOL_ID;
     this.clientId = config[ENVIRONMENT].COGNITO_CLIENT_ID;
 
@@ -127,7 +121,7 @@ class CognitoModel {
       const command = new ForgotPasswordCommand(params);
       const forgotPasswordResponse = await this.client.send(command);
       Logger.info(`Password reset initiated for user: ${username}`);
-      return changeCasing(forgotPasswordResponse); 
+      return changeCasing(forgotPasswordResponse);
     } catch (error) {
       Logger.error("Error initiating forgot password:", error.message);
       throw error;

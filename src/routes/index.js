@@ -11,7 +11,10 @@ import {
   verifySignupRoute,
 } from "../controllers/userController/index.js";
 import bodyParser from "body-parser";
-import { generatePreSignedURLRoute } from "../controllers/s3Controller/index.js";
+import {
+  createAlbumsRoute,
+  generatePreSignedURLRoute,
+} from "../controllers/s3Controller/index.js";
 
 const createRouter = () => {
   const router = express.Router();
@@ -36,6 +39,9 @@ const createRouter = () => {
     sessionMiddleware,
     generatePreSignedURLRoute
   );
+
+  // Rekognition
+  router.post("/createAlbums", sessionMiddleware, createAlbumsRoute);
 
   return router;
 };

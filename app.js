@@ -6,6 +6,9 @@ import cookieParser from "cookie-parser";
 import createRouter from "./src/routes/index.js";
 import { logRequest } from "./src/middlewares/index.js";
 import Logger from "./src/lib/Logger.js";
+import configObj from "./src/config.js";
+const { ENVIRONMENT } = configObj;
+import { sequelize } from "./src/models/index.js";
 
 const app = express();
 
@@ -22,6 +25,14 @@ app.use(logRequest);
 
 // Use routers
 app.use(createRouter());
+
+// Sync models in dev (optional, use migrations in prod)
+if (ENVIRONMENT === "development") {
+  (async () => {
+    await sequelize.sync({ force: false });
+    Logger.info("Database synced successfully in development");
+  })().catch((err) => Logger.error("Sync error:", err));
+}
 
 // catch 404 and forward to error handler
 app.use((req, res, next) => {
@@ -44,6 +55,13 @@ app.use((err, req, res, next) => {
       message,
     },
   });
+});
+
+// Optional: Close Sequelize on app shutdown (for graceful shutdown)
+process.on("SIGTERM", async () => {
+  await sequelize.close();
+  Logger.info("Database connection closed");
+  process.exit(0);
 });
 
 export { app };

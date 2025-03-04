@@ -1,113 +1,47 @@
-import {
-  DynamoDBClient,
-  CreateTableCommand,
-  PutItemCommand,
-} from "@aws-sdk/client-dynamodb";
+import { Sequelize, DataTypes } from "sequelize";
 import Logger from "../lib/Logger.js";
 import configObj from "../config.js";
-const { config, ENVIRONMENT, AWS_REGION } = configObj;
+const { config, ENVIRONMENT } = configObj;
 import S3Model from "./S3Model.js";
 import { TABLE_NAME } from "../utility/constants.js";
 import { generateUUID } from "../utility/index.js";
 import moment from "moment";
+import RekognitionModel from "./RekognitionModel.js";
+import sequelize from "../config/database.js";
 
-// Initialize Cognito Client Configuration
-const dynamoDBConfig = {
-  region: AWS_REGION,
-  credentials: {
-    accessKeyId: config[ENVIRONMENT].AWS_ACCESS_KEY_ID,
-    secretAccessKey: config[ENVIRONMENT].AWS_SECRET_ACCESS_KEY,
-  },
-};
-
-class DynamoDBModel {
+class SequelizeModel {
   constructor() {
-    this.client = new DynamoDBClient(dynamoDBConfig);
+    this.sequelize = sequelize;
     this.s3Model = new S3Model();
+    this.rekognitionClient = new RekognitionModel();
   }
 
   async createUsersTable() {
-    const params = {
-      TableName: TABLE_NAME.USERS,
-      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }], // Partition Key
-      AttributeDefinitions: [
-        { AttributeName: "userId", AttributeType: "S" }, // Primary Key
-        { AttributeName: "email", AttributeType: "S" }, // GSI attribute
-      ],
-      GlobalSecondaryIndexes: [
-        {
-          IndexName: "emailIndex", // GSI name
-          KeySchema: [{ AttributeName: "email", KeyType: "HASH" }], // Partition Key for GSI
-          Projection: {
-            ProjectionType: "ALL", // Include all attributes in the index
-          },
-        },
-      ],
-      BillingMode: "PAY_PER_REQUEST", // Use on-demand pricing
-    };
-
     try {
-      const result = await this.client.send(new CreateTableCommand(params));
-      Logger.info("Users table with GSI created successfully.", result);
-      return result;
+      await User.sync({ force: false }); // force: false ensures it doesn't drop the table if it exists
+      Logger.info("Users table created or already exists.");
     } catch (error) {
       Logger.error("Error creating Users table:", error.message);
       throw error;
     }
   }
 
-  async createBucketsTable() {
-    const params = {
-      TableName: TABLE_NAME.BUCKETS,
-      KeySchema: [{ AttributeName: "bucketId", KeyType: "HASH" }], // Partition Key
-      AttributeDefinitions: [
-        { AttributeName: "bucketId", AttributeType: "S" },
-        { AttributeName: "userId", AttributeType: "S" },
-      ],
-      BillingMode: "PAY_PER_REQUEST",
-      GlobalSecondaryIndexes: [
-        {
-          IndexName: "userIdIndex",
-          KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
-          Projection: { ProjectionType: "ALL" },
-        },
-      ],
-    };
-
+  async createPhotosTable() {
     try {
-      const result = await this.client.send(new CreateTableCommand(params));
-      Logger.info("Buckets table created successfully.", result);
-      return result;
+      await Photo.sync({ force: false });
+      Logger.info("Photos table created or already exists.");
     } catch (error) {
-      Logger.error("Error creating Buckets table:", error.message);
+      Logger.error("Error creating Photos table:", error.message);
       throw error;
     }
   }
 
-  async createPhotosTable() {
-    const params = {
-      TableName: TABLE_NAME.PHOTOS,
-      KeySchema: [{ AttributeName: "photoId", KeyType: "HASH" }], // Partition Key
-      AttributeDefinitions: [
-        { AttributeName: "photoId", AttributeType: "S" },
-        { AttributeName: "bucketId", AttributeType: "S" },
-      ],
-      BillingMode: "PAY_PER_REQUEST",
-      GlobalSecondaryIndexes: [
-        {
-          IndexName: "bucketIdIndex",
-          KeySchema: [{ AttributeName: "bucketId", KeyType: "HASH" }],
-          Projection: { ProjectionType: "ALL" },
-        },
-      ],
-    };
-
+  async createFacesTable() {
     try {
-      const result = await this.client.send(new CreateTableCommand(params));
-      Logger.info("Photos table created successfully.", result);
-      return result;
+      await Face.sync({ force: false });
+      Logger.info("Faces table created or already exists.");
     } catch (error) {
-      Logger.error("Error creating Photos table:", error.message);
+      Logger.error("Error creating Faces table:", error.message);
       throw error;
     }
   }
@@ -118,8 +52,8 @@ class DynamoDBModel {
   async initializeTables() {
     try {
       await this.createUsersTable();
-      await this.createBucketsTable();
       await this.createPhotosTable();
+      await this.createFacesTable();
       Logger.info("All tables initialized successfully.");
     } catch (error) {
       Logger.error("Error initializing tables:", error.message);
@@ -127,41 +61,11 @@ class DynamoDBModel {
     }
   }
 
-  /**
-   * Create a bucket and store it in the Buckets table.
-   * @param {string} userID - ID of the user creating the bucket.
-   * @param {string} bucketName - Name of the bucket.
-   * @returns {Promise<object>} - DynamoDB PutItem response.
-   */
-  async createBucket({ userId, bucketName }) {
-    try {
-      const { location } = await this.s3Model.createBucket({
-        bucketName,
-      });
-
-      const isBucketCreated = !!location;
-      if (isBucketCreated) {
-        const bucketId = generateUUID();
-        const params = {
-          TableName: TABLE_NAME.BUCKETS,
-          Item: {
-            bucketId: { S: bucketId },
-            userId: { S: userId },
-            bucketName: { S: bucketName },
-            CreatedAt: { S: moment().format("DD/MM/YYYY HH:mm:ss") },
-          },
-        };
-        const result = await this.client.send(new PutItemCommand(params));
-        Logger.info("Bucket created successfully.", result);
-        return { bucketId, bucketLocation: location, bucketName };
-      }
-
-      return bucketLocation;
-    } catch (error) {
-      Logger.error("Error creating bucket:", error.message);
-      throw error;
-    }
+  // Close the Sequelize connection when done
+  async close() {
+    await this.sequelize.close();
+    Logger.info("Sequelize connection closed.");
   }
 }
 
-export default DynamoDBModel;
+export default SequelizeModel;
