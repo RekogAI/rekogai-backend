@@ -139,7 +139,7 @@ class RekognitionModel {
           bucketName: { S: bucketName },
           collectionId: { S: collectionId },
           faceAttributes: { S: JSON.stringify(faceRecord) },
-          createdAt: { S: moment().format("DD/MM/YYYY HH:mm:ss") },
+          // createdAt: { S: moment().format("DD/MM/YYYY HH:mm:ss") },
         },
       },
     }));
