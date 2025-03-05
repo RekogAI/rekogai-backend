@@ -4,6 +4,7 @@ export const TABLE_NAME = {
   FACES: "faces",
   ALBUMS: "albums",
   COLLECTIONS: "collections",
+  FOLDERS: "folders",
 };
 
 export const IMAGE_STATUS = {
@@ -12,6 +13,7 @@ export const IMAGE_STATUS = {
   UPLOADED_TO_S3: "UPLOADED_TO_S3",
   FAILED_TO_UPLOAD_TO_S3: "FAILED_TO_UPLOAD_TO_S3",
   FACES_DETECTED: "FACES_DETECTED",
+  NO_FACES_DETECTED: "NO_FACES_DETECTED",
   FACES_INDEXED: "FACES_INDEXED",
 };
 

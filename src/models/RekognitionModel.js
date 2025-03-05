@@ -3,278 +3,363 @@ import {
   CreateCollectionCommand,
   IndexFacesCommand,
   SearchFacesByImageCommand,
+  DetectFacesCommand,
 } from "@aws-sdk/client-rekognition";
 import { generateUUID } from "../utility/index.js";
-
 import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
-
 import configObj from "../config.js";
 import Logger from "../lib/Logger.js";
-import { TABLE_NAME } from "../utility/constants.js";
-import {
-  DynamoDBClient,
-  QueryCommand,
-  BatchWriteItemCommand,
-} from "@aws-sdk/client-dynamodb";
-import moment from "moment/moment.js";
+import { Face, Album } from "../models/schemas/associations.js";
+import { IMAGE_STATUS } from "../utility/constants.js";
 
 const { config, ENVIRONMENT } = configObj;
 
-class RekognitionModel {
-  constructor() {
-    this.rekognitionClient = new RekognitionClient(
-      config[ENVIRONMENT].AWS_SDK_CONFIG
-    );
-    this.s3Client = new S3Client(config[ENVIRONMENT].AWS_SDK_CONFIG);
-    this.dynamoClient = new DynamoDBClient(config[ENVIRONMENT].AWS_SDK_CONFIG);
-  }
+const rekognitionClient = new RekognitionClient(
+  config[ENVIRONMENT].AWS_SDK_CONFIG
+);
+const s3Client = new S3Client(config[ENVIRONMENT].AWS_SDK_CONFIG);
 
-  /**
-   * Creates a face collection.
-   */
-  async createCollection() {
-    try {
-      const collectionId = generateUUID();
-      const command = new CreateCollectionCommand({
-        CollectionId: collectionId,
-      });
-      const response = await this.rekognitionClient.send(command);
-      Logger.info("Face collection created:", response);
-      return { collectionId };
-    } catch (error) {
-      if (error.name === "ResourceAlreadyExistsException") {
-        return "Collection already exists.";
-      } else {
-        Logger.error("Error creating collection:", error);
-        throw error;
-      }
-    }
-  }
-
-  async getFacesByCollectionId(collectionId) {
-    const params = {
-      TableName: TABLE_NAME.FACES,
-      IndexName: "collectionIdIndex",
-      KeyConditionExpression: "collectionId = :collectionId",
-      ExpressionAttributeValues: {
-        ":collectionId": collectionId,
-      },
-    };
-
-    try {
-      const command = new QueryCommand(params);
-      const data = await this.dynamoClient.send(command);
-      Logger.info("Faces retrieved:", data.Items);
-
-      return data.Items.map((item) => ({
-        ...item,
-        FaceAttributes: JSON.parse(item.FaceAttributes), // Parse JSON string back to an object
-      }));
-    } catch (error) {
-      Logger.error("Error querying faces by CollectionId:", error);
+const createCollection = async () => {
+  try {
+    const collectionId = generateUUID();
+    const command = new CreateCollectionCommand({
+      CollectionId: collectionId,
+    });
+    const response = await rekognitionClient.send(command);
+    Logger.info("Face collection created:", response);
+    return { collectionId };
+  } catch (error) {
+    if (error.name === "ResourceAlreadyExistsException") {
+      return "Collection already exists.";
+    } else {
+      Logger.error("Error creating collection:", error);
       throw error;
     }
   }
+};
 
-  async searchIndexedFaces({ bucketName, key }) {
-    console.log(
-      "RekognitionModel  searchIndexedFaces  bucketName",
-      bucketName,
-      key
-    );
-    const params = {
-      TableName: TABLE_NAME.FACES,
-      IndexName: "bucketName-imageKey-index",
-      KeyConditionExpression:
-        "bucketName = :bucketName AND imageKey = :imageKey",
-      ExpressionAttributeValues: {
-        ":bucketName": bucketName,
-        ":imageKey": key,
-      },
-    };
+const getFacesByCollectionId = async (collectionId) => {
+  try {
+    const faces = await Face.findAll({
+      where: { collection_id: collectionId },
+    });
+    Logger.info("Faces retrieved:", faces);
 
-    try {
-      const command = new QueryCommand(params);
-      const data = await this.dynamoClient.send(command);
-      console.log("RekognitionModel  searchIndexedFaces  data", data);
-      if (data?.Items?.length > 0) {
-        Logger.info("Face found in DynamoDB:", data.Items);
-        return data.Items[0]; // Return the first matching item.
-      } else {
-        Logger.info("Face not found in DynamoDB.");
-        return null; // No match.
-      }
-    } catch (error) {
-      Logger.error("Error searching for face in DynamoDB:", error);
+    return faces.map((item) => ({
+      ...item.dataValues,
+      face_attributes: JSON.parse(item.face_attributes),
+    }));
+  } catch (error) {
+    Logger.error("Error querying faces by CollectionId:", error);
+    throw error;
+  }
+};
+
+const searchIndexedFaces = async ({ bucketName, key }) => {
+  try {
+    const face = await Face.findOne({
+      where: { bucket_name: bucketName, image_key: key },
+    });
+    if (face) {
+      Logger.info("Face found in PostgreSQL:", face);
+      return face.dataValues;
+    } else {
+      Logger.info("Face not found in PostgreSQL.");
       return null;
     }
+  } catch (error) {
+    Logger.error("Error searching for face in PostgreSQL:", error);
+    return null;
   }
+};
 
-  async storeIndexedFaces({ faceRecords, bucketName, key, collectionId }) {
-    console.log(
-      "RekognitionModel  storeIndexedFaces  { faceRecords, bucketName, key, collectionId }",
-      { faceRecords, bucketName, key, collectionId }
-    );
-    console.log(
-      "RekognitionModel  storeIndexedFaces  faceRecords",
-      faceRecords[0]?.Face,
-      faceRecords[0]?.FaceDetail
-    );
-    Logger.info(
-      "RekognitionModel  storeIndexedFaces  faceRecords",
-      faceRecords[0]?.Face,
-      faceRecords[0]?.FaceDetail
-    );
-    console.log(
-      "RekognitionModel  storeIndexedFaces  faceRecords",
-      JSON.stringify(faceRecords)
-    );
-
-    const tableName = TABLE_NAME.FACES;
-    const putRequests = faceRecords.map((faceRecord) => ({
-      PutRequest: {
-        Item: {
-          faceId: { S: faceRecord?.Face?.FaceId },
-          imageKey: { S: key },
-          bucketName: { S: bucketName },
-          collectionId: { S: collectionId },
-          faceAttributes: { S: JSON.stringify(faceRecord) },
-          // createdAt: { S: moment().format("DD/MM/YYYY HH:mm:ss") },
-        },
-      },
-    }));
-
-    const params = {
-      RequestItems: {
-        [tableName]: putRequests,
-      },
-    };
-
-    console.log(
-      "RekognitionModel  putRequests  putRequests",
-      JSON.stringify(params)
-    );
-
-    try {
-      const command = new BatchWriteItemCommand(params);
-      const data = await this.dynamoClient.send(command);
-      Logger.info("Indexed faces stored successfully in DynamoDB.", data);
-    } catch (error) {
-      Logger.error("Error storing indexed faces in DynamoDB:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Indexes faces from an image in S3 into the collection.
-   * @param {string} bucketName - The name of the S3 bucket.
-   * @param {string} objectKey - The key of the S3 object.
-   * @returns {Promise<Object[]>} - Indexed face metadata.
-   */
-  async indexFaces({ bucketName, key, collectionId }) {
-    const existingFace = await this.searchIndexedFaces({ bucketName, key });
-
-    if (existingFace) {
-      Logger.info(`Face already indexed for ${key}:`, existingFace);
-      return existingFace;
-    }
-
-    try {
-      const command = new IndexFacesCommand({
-        CollectionId: collectionId,
-        Image: { S3Object: { Bucket: bucketName, Name: key } },
-        MaxFaces: 1,
-        QualityFilter: "AUTO",
-        DetectionAttributes: ["DEFAULT"],
+const storeIndexedFaces = async ({
+  faceRecords,
+  bucketName,
+  key,
+  collectionId,
+}) => {
+  try {
+    for (const faceRecord of faceRecords) {
+      await Face.create({
+        face_id: faceRecord?.Face?.FaceId,
+        image_key: key,
+        bucket_name: bucketName,
+        collection_id: collectionId,
+        face_attributes: JSON.stringify(faceRecord),
       });
-      const response = await this.rekognitionClient.send(command);
-      Logger.info("RekognitionModel  indexFaces  response", response);
-      Logger.info(`Faces indexed for ${key}:`, response.FaceRecords);
+    }
+    Logger.info("Indexed faces stored successfully in PostgreSQL.");
+  } catch (error) {
+    Logger.error("Error storing indexed faces in PostgreSQL:", error);
+    throw error;
+  }
+};
 
-      // 3. Store indexed faces in DynamoDB.
-      await this.storeIndexedFaces({
-        faceRecords: response.FaceRecords,
+const indexFaces = async ({ bucketName, key, collectionId }) => {
+  const existingFace = await searchIndexedFaces({ bucketName, key });
+
+  if (existingFace) {
+    Logger.info(`Face already indexed for ${key}:`, existingFace);
+    return existingFace;
+  }
+  try {
+    const command = new IndexFacesCommand({
+      CollectionId: collectionId,
+      Image: { S3Object: { Bucket: bucketName, Name: key } },
+      MaxFaces: 1,
+      QualityFilter: "AUTO",
+      DetectionAttributes: ["DEFAULT"],
+    });
+    const response = await rekognitionClient.send(command);
+    Logger.info(`Faces indexed for ${key}:`, response.FaceRecords);
+
+    await storeIndexedFaces({
+      faceRecords: response.FaceRecords,
+      bucketName,
+      key,
+      collectionId,
+    });
+
+    return response.FaceRecords.map((record) => record.Face);
+  } catch (error) {
+    Logger.error("Error indexing faces:", error);
+    throw error;
+  }
+};
+
+const searchFacesByImage = async ({ bucketName, key, collectionId }) => {
+  try {
+    const command = new SearchFacesByImageCommand({
+      CollectionId: collectionId,
+      Image: {
+        S3Object: { Bucket: bucketName, Name: key },
+      },
+      MaxFaces: 5,
+      QualityFilter: "AUTO",
+      FaceMatchThreshold: 95, // face match threshold
+    });
+    const response = await rekognitionClient.send(command);
+    Logger.info(`Found similar faces for ${key}:`, response.FaceMatches);
+    return response;
+  } catch (error) {
+    Logger.error("Error searching faces by image:", error);
+    throw error;
+  }
+};
+
+const groupFacesIntoAlbums = async ({ bucketName, collectionId }) => {
+  try {
+    const command = new ListObjectsCommand({ Bucket: bucketName });
+    const listResponse = await s3Client.send(command);
+    const objectKeys = listResponse.Contents.map((item) => item.Key);
+
+    const albums = {};
+
+    for (const key of objectKeys) {
+      Logger.info(`Processing: ${key}`);
+      const faceMatches = await searchFacesByImage({
         bucketName,
         key,
         collectionId,
       });
-
-      return response.FaceRecords.map((record) => record.Face);
-    } catch (error) {
-      Logger.error("Error indexing faces:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Searches for similar faces in the collection by image.
-   * @param {string} bucketName - The S3 bucket name.
-   * @param {string} objectKey - The object key in the S3 bucket.
-   * @returns {Promise<Object[]>} - Matching faces metadata.
-   */
-  async searchFacesByImage({ bucketName, key, collectionId }) {
-    try {
-      const command = new SearchFacesByImageCommand({
-        CollectionId: collectionId,
-        Image: {
-          S3Object: { Bucket: bucketName, Name: key },
-        },
-        MaxFaces: 5,
-        QualityFilter: "AUTO",
-        FaceMatchThreshold: 95,
-      });
-      const response = await this.rekognitionClient.send(command);
-      Logger.info(`Found similar faces for ${key}:`, response.FaceMatches);
-      return response.FaceMatches;
-    } catch (error) {
-      Logger.error("Error searching faces by image:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Groups faces into albums based on similarity.
-   * @param {string} bucketName - The name of the S3 bucket.
-   */
-  async groupFacesIntoAlbums({ bucketName, collectionId }) {
-    try {
-      const command = new ListObjectsCommand({ Bucket: bucketName });
-      const listResponse = await this.s3Client.send(command);
-      const objectKeys = listResponse.Contents.map((item) => item.Key);
-
-      const albums = {};
-
-      for (const key of objectKeys) {
-        Logger.info(`Processing: ${key}`);
-        const faceMatches = await this.searchFacesByImage({
+      if (faceMatches.length > 0) {
+        const bestMatchId = faceMatches[0].Face.FaceId;
+        if (!albums[bestMatchId]) albums[bestMatchId] = [];
+        albums[bestMatchId].push(key);
+      } else {
+        const indexedFaces = await indexFaces({
           bucketName,
           key,
           collectionId,
         });
-        if (faceMatches.length > 0) {
-          // Assign image to the album of the best match
-          const bestMatchId = faceMatches[0].Face.FaceId;
-          if (!albums[bestMatchId]) albums[bestMatchId] = [];
-          albums[bestMatchId].push(key);
-        } else {
-          // If no match, treat as a new album
-          const indexedFaces = await this.indexFaces({
-            bucketName,
-            key,
-            collectionId,
-          });
-          const newFaceId = indexedFaces[0]?.FaceId;
-          if (newFaceId) albums[newFaceId] = [key];
-        }
+        const newFaceId = indexedFaces[0]?.FaceId;
+        if (newFaceId) albums[newFaceId] = [key];
       }
+    }
 
-      Logger.info("Albums created:", albums);
-      return albums;
+    Logger.info("Albums created:", albums);
+    return albums;
+  } catch (error) {
+    Logger.error("Error grouping faces into albums:", error);
+    throw error;
+  }
+};
+
+const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
+  const fetchImagesFromDatabase = async ({
+    userId,
+    limit = 50,
+    pageNumber = 0,
+    folderId,
+  }) => {
+    const offset = pageNumber * limit;
+    try {
+      const images = await Image.findAll({
+        attributes: ["fileLocationInS3", "imageId"],
+        where: {
+          userId: userId,
+          folderId,
+          fileStatus: IMAGE_STATUS.UPLOADED_TO_S3,
+        },
+        limit,
+        offset,
+        raw: true,
+      });
+      Logger.info("Images fetched from database:", images);
+      return images;
     } catch (error) {
-      Logger.error("Error grouping faces into albums:", error);
+      Logger.error("Error fetching images from database:", error);
       throw error;
     }
-  }
-}
+  };
 
-export default RekognitionModel;
+  const createImageBatch = (images) => {
+    if (images.length === 0) return [];
+
+    return images.map((image) => ({
+      S3Object: {
+        Bucket: config[ENVIRONMENT].S3_BUCKET_NAME,
+        Name: image.fileLocationInS3,
+      },
+    }));
+  };
+
+  const detectFaces = async (image) => {
+    try {
+      const command = new DetectFacesCommand({
+        Image: image,
+        Attributes: ["ALL"],
+      });
+      const response = await rekognitionClient.send(command);
+      Logger.info(" DetectFaces response", response);
+      return {
+        hasFaces: response.FaceDetails.length > 0,
+        facesCount: response.FaceDetails.length,
+      };
+    } catch (error) {
+      Logger.error("Error detecting faces:", error);
+      return false;
+    }
+  };
+
+  const filterImagesWithFaces = async (images) => {
+    const filteredImages = [];
+    for (const image of images) {
+      const { hasFaces, facesCount } = await detectFaces(image);
+      if (hasFaces) {
+        filteredImages.push(image);
+        await Image.update(
+          {
+            fileStatus: IMAGE_STATUS.FACES_DETECTED,
+            facesDetected: true,
+            facesDetectedCount: facesCount,
+            rekognitionAPICallCount: 1,
+          },
+          { where: { fileLocationInS3: image.S3Object.Name } }
+        );
+      } else {
+        await Image.update(
+          {
+            fileStatus: IMAGE_STATUS.NO_FACES_DETECTED,
+            facesDetected: false,
+            rekognitionAPICallCount: 1,
+          },
+          { where: { fileLocationInS3: image.S3Object.Name } }
+        );
+      }
+    }
+    return filteredImages;
+  };
+
+  const sendImageBatchToRekognition = async (imageBatch, collectionId) => {
+    const faces = [];
+    for (const image of imageBatch) {
+      const searchFacesByImageResponse = await searchFacesByImage({
+        bucketName: image.S3Object.Bucket,
+        key: image.S3Object.Name,
+        collectionId,
+      });
+
+      const faceMatches = searchFacesByImageResponse.FaceMatches;
+      await Image.update(
+        {
+          rekognitionAPICallCount: 2,
+          SearchFacesByImageResponse: JSON.stringify(
+            searchFacesByImageResponse
+          ),
+          facesMatchedInCollectionCount: faceMatches.length,
+          matchedFaceIds: faceMatches.length
+            ? faceMatches.map((match) => match.Face.FaceId)
+            : [],
+          skippedFacesIndexing: faceMatches.length > 0,
+        },
+        { where: { fileLocationInS3: image.S3Object.Name } }
+      );
+
+      if (faceMatches.length > 0) {
+        faces.push(...faceMatches.map((match) => match.Face));
+      } else {
+        const indexedFaces = await indexFaces({
+          bucketName: image.S3Object.Bucket,
+          key: image.S3Object.Name,
+          collectionId,
+        });
+        // add image Id in each photo
+        faces.push(...indexedFaces);
+      }
+    }
+    return faces;
+  };
+
+  const createAlbums = async (faces) => {
+    const albums = {};
+    for (const face of faces) {
+      if (!albums[face.FaceId]) albums[face.FaceId] = [];
+      albums[face.FaceId].push(face);
+    }
+
+    for (const faceId in albums) {
+      const face = albums[faceId][0];
+      const imageKeys = albums[faceId].map((face) => face.ImageId);
+      await Album.create({
+        userId,
+        faceId,
+        imageIds: imageKeys,
+      });
+    }
+  };
+
+  let pageNumber = 0;
+  const pageSize = 50;
+
+  let images = await fetchImagesFromDatabase({
+    userId,
+    folderId,
+    pageSize,
+    pageNumber,
+  });
+  while (images.length > 0) {
+    const s3KeysArray = createImageBatch(images);
+    const filteredImages = await filterImagesWithFaces(s3KeysArray);
+    const faces = await sendImageBatchToRekognition(
+      filteredImages,
+      collectionId
+    );
+    await createAlbums(faces);
+    pageNumber++;
+    images = await fetchImagesFromDatabase({
+      userId,
+      folderId,
+      pageSize,
+      pageNumber,
+    });
+  }
+};
+
+export default {
+  createCollection,
+  getFacesByCollectionId,
+  groupFacesIntoAlbums,
+  startImageProcessingJob,
+};

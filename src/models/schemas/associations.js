@@ -2,6 +2,7 @@ import User from "./users.js";
 import Image from "./images.js";
 import Face from "./faces.js";
 import Album from "./albums.js";
+import Folder from "./folders.js";
 
 // User Associations
 User.hasMany(Image, {
@@ -37,4 +38,25 @@ Album.belongsTo(User, {
   as: "user",
 });
 
-export { User, Image, Face, Album };
+// Folder Associations
+Folder.belongsTo(User, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+User.hasMany(Folder, {
+  foreignKey: "userId",
+  as: "folders",
+});
+
+Folder.hasMany(Image, {
+  foreignKey: "folderId",
+  as: "images",
+});
+
+Image.belongsTo(Folder, {
+  foreignKey: "folderId",
+  as: "folder",
+});
+
+export { User, Image, Face, Album, Folder };

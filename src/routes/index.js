@@ -2,9 +2,7 @@ import express from "express";
 import { sessionMiddleware } from "../middlewares/index.js";
 import {
   confirmForgotPasswordRoute,
-  createBucketRoute,
   forgotPasswordRoute,
-  listBucketsRoute,
   refreshSessionRoute,
   signInRoute,
   signUpRoute,
@@ -28,10 +26,6 @@ const createRouter = () => {
   router.post("/forgotPassword", forgotPasswordRoute);
   router.post("/confirmForgotPassword", confirmForgotPasswordRoute);
   router.post("/refreshSession", sessionMiddleware, refreshSessionRoute);
-
-  // User actions
-  router.post("/createBucket", sessionMiddleware, createBucketRoute);
-  router.get("/listBuckets", sessionMiddleware, listBucketsRoute);
 
   // Add photos to a bucket
   router.post(

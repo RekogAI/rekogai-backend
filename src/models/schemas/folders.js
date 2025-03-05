@@ -2,42 +2,37 @@ import { DataTypes } from "sequelize";
 import sequelize from "../../config/database.js";
 import { TABLE_NAME } from "../../utility/constants.js";
 
-const Album = sequelize.define(
-  TABLE_NAME.ALBUMS,
+const Folder = sequelize.define(
+  TABLE_NAME.FOLDERS,
   {
-    albumId: {
+    folderId: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
     userId: {
       type: DataTypes.UUID,
+      allowNull: false,
       references: {
         model: TABLE_NAME.USERS,
         key: "userId",
       },
       onUpdate: "cascade",
       onDelete: "cascade",
-      allowNull: false,
     },
-    faceId: {
-      type: DataTypes.UUID,
-      references: {
-        model: TABLE_NAME.FACES,
-        key: "faceId",
-      },
-      onUpdate: "cascade",
-      onDelete: "cascade",
+    folderName: {
+      type: DataTypes.STRING,
       allowNull: false,
+      comment: "Name of the folder",
     },
-    imageIds: {
-      type: DataTypes.ARRAY(DataTypes.UUID),
-      defaultValue: [],
+    description: {
+      type: DataTypes.STRING,
       allowNull: true,
+      comment: "Description of the folder",
     },
   },
   {
-    tableName: TABLE_NAME.ALBUMS,
+    tableName: TABLE_NAME.FOLDERS,
     timestamps: true,
     freezeTableName: true,
     paranoid: true,
@@ -46,4 +41,4 @@ const Album = sequelize.define(
   }
 );
 
-export default Album;
+export default Folder;

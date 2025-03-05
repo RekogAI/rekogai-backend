@@ -1,21 +1,7 @@
 import { asyncHandler, handleApiResponse } from "../../middlewares/index.js";
 import CognitoModel from "../../models/CognitoModel.js";
-import S3Model from "../../models/S3Model.js";
-import DynamoDBModel from "../../models/DynamoDBModel.js";
 
-const s3ModelInstance = new S3Model();
 const cognitoModelInstance = new CognitoModel();
-const dynamoDBModelInstance = new DynamoDBModel();
-
-export const listBucketsRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await s3ModelInstance.listUserBuckets(req.query);
-  return handleApiResponse(res, apiResponse);
-});
-
-export const createBucketRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await dynamoDBModelInstance.createBucket(req.body);
-  return handleApiResponse(res, apiResponse);
-});
 
 export const signUpRoute = asyncHandler(async (req, res) => {
   const apiResponse = await cognitoModelInstance.signUp(req.body);
