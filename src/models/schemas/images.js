@@ -31,11 +31,11 @@ const Image = sequelize.define(
       onDelete: "set null",
       comment: "The folder in which the image is stored",
     },
-    rekognitionAPICallCount: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      allowNull: false,
-      comment: "The number of times the API was called for this image",
+    isImageQualityOk: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: true,
+      comment: "Whether the image quality is good or not",
     },
     fileName: {
       type: DataTypes.STRING(255),

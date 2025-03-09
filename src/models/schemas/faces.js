@@ -35,12 +35,6 @@ const Face = sequelize.define(
       defaultValue: 0,
       comment: "Face popularity count",
     },
-    externalImageId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      comment: "External Image Id",
-    },
-
     // Face Detail's
     ageRange: {
       type: DataTypes.JSONB,

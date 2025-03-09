@@ -3,6 +3,8 @@ import Image from "./images.js";
 import Face from "./faces.js";
 import Album from "./albums.js";
 import Folder from "./folders.js";
+import APIResponse from "./api_reponse.js";
+import Thumbnail from "./thumbnails.js";
 
 // User Associations
 User.hasMany(Image, {
@@ -59,4 +61,36 @@ Image.belongsTo(Folder, {
   as: "folder",
 });
 
-export { User, Image, Face, Album, Folder };
+// APIResponse Associations
+APIResponse.belongsTo(User, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+User.hasMany(APIResponse, {
+  foreignKey: "userId",
+  as: "apiResponses",
+});
+
+APIResponse.belongsTo(Image, {
+  foreignKey: "imageId",
+  as: "image",
+});
+
+Image.hasMany(APIResponse, {
+  foreignKey: "imageId",
+  as: "apiResponses",
+});
+
+// Thumbnail Associations
+Thumbnail.belongsTo(Face, {
+  foreignKey: "faceId",
+  as: "face",
+});
+
+Face.hasOne(Thumbnail, {
+  foreignKey: "faceId",
+  as: "thumbnail",
+});
+
+export { User, Image, Face, Album, Folder, APIResponse };
