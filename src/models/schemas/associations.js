@@ -93,4 +93,4 @@ Face.hasOne(Thumbnail, {
   as: "thumbnail",
 });
 
-export { User, Image, Face, Album, Folder, APIResponse };
+export default { User, Image, Face, Album, Folder, APIResponse, Thumbnail };

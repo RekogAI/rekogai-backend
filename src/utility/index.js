@@ -4,7 +4,7 @@ export const generateUUID = () => {
   return crypto.randomBytes(16).toString("hex");
 };
 
-export const changeCasing = (data) => {
+export const formatAPIResponse = (data) => {
   const toCamelCase = (key) =>
     key
       .replace(/_([a-z])/g, (_, char) => char.toUpperCase())

@@ -7,8 +7,9 @@ import createRouter from "./src/routes/index.js";
 import { logRequest } from "./src/middlewares/index.js";
 import Logger from "./src/lib/Logger.js";
 import configObj from "./src/config.js";
-const { ENVIRONMENT } = configObj;
+const { ENVIRONMENT, corsOptions } = configObj;
 import { sequelize } from "./src/models/index.js";
+import cors from "cors";
 
 const app = express();
 
@@ -17,6 +18,7 @@ const __dirname = path.dirname(new URL(import.meta.url).pathname);
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "jade");
 
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());

@@ -4,6 +4,10 @@ dotenv.config();
 const ENVIRONMENT = process.env.ENVIRONMENT;
 const AWS_REGION = process.env.AWS_REGION;
 
+const corsOptions = {
+  origin: "http://localhost:3000",
+};
+
 const config = {
   development: {
     POSTGRES_CONFIG: {
@@ -36,4 +40,4 @@ const config = {
   },
 };
 
-export default { config, ENVIRONMENT, AWS_REGION };
+export default { config, ENVIRONMENT, AWS_REGION, corsOptions };

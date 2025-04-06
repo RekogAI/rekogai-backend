@@ -8,9 +8,17 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider";
 import Logger from "../lib/Logger.js";
 import UserModel from "./UserModel.js";
-import { changeCasing } from "../utility/index.js";
+import { formatAPIResponse } from "../utility/index.js";
 
 import configObj from "../config.js";
+// import {
+//   User,
+//   Image,
+//   Face,
+//   Album,
+//   Folder,
+//   APIResponse,
+// } from "../models/schemas/associations.js";
 const { config, ENVIRONMENT, AWS_REGION } = configObj;
 
 class CognitoModel {
@@ -24,7 +32,9 @@ class CognitoModel {
     this.userModel = new UserModel();
   }
 
-  async signUp({ username, password, attributes }) {
+  async signUp(reqBody) {
+    console.log(" CognitoModelsignUp reqBody", reqBody);
+    const { username, password, attributes } = reqBody;
     const params = {
       ClientId: this.clientId,
       Username: username,
@@ -35,29 +45,56 @@ class CognitoModel {
     const command = new SignUpCommand(params);
     try {
       const response = await this.client.send(command);
-      Logger.info("Sign-up successful:", response);
-      return changeCasing(response);
+      console.log("Sign-up successful:", response);
+      const createdUsers = await this.userModel.createUser({
+        email: username,
+        password,
+      });
+      return formatAPIResponse({ ...createdUsers, ...response });
     } catch (error) {
       Logger.error("Error during sign-up:", error.message);
-      throw error;
+      return error;
     }
   }
 
-  async confirmSignUp({ username, confirmationCode, password }) {
+  async confirmSignUp({ username, confirmationCode }) {
+    console.log(` CognitoModelconfirmSignUp { username, confirmationCode }`, {
+      username,
+      confirmationCode,
+    });
     const params = {
       ClientId: this.clientId,
       Username: username,
       ConfirmationCode: confirmationCode,
     };
 
+    // Check if the user already exists in the database
+    const userExists = await this.userModel.getUserByUsername(username);
+    console.log(' CognitoModelconfirmSignUp userExists', userExists);
+    if (!userExists) {
+      Logger.error("User does not exist in the database");
+      throw new Error("User does not exist in the database");
+    }
+    // // Check if the user is already confirmed
+    // if (userExists.userConfirmed) {
+    //   Logger.error("User is already confirmed");
+    //   throw new Error("User is already confirmed");
+    // }
+
     const command = new ConfirmSignUpCommand(params);
     try {
       const confirmSignUpResponse = await this.client.send(command);
-      Logger.info("User confirmed successfully", confirmSignUpResponse);
-      await this.userModel.createUser({ email: username });
+      console.log("User confirmed successfully", confirmSignUpResponse);
 
-      const signInResponse = await this.signIn({ username, password });
-      return changeCasing(signInResponse);
+      return {
+        message: "User confirmed successfully",
+        ...confirmSignUpResponse,
+      };
+      // const signInResponse = await this.signIn({
+      //   username,
+      //   password: userExists.password,
+      // });
+      // return formatAPIResponse(signInResponse);
     } catch (error) {
       Logger.error("Error during confirmation:", error.message);
       throw error;
@@ -84,7 +121,7 @@ class CognitoModel {
         ...{ userAuth: response.AuthenticationResult },
         ...{ userDetails },
       };
-      return changeCasing(result);
+      return formatAPIResponse(result);
     } catch (error) {
       Logger.error("Error during sign-in:", error.message);
       throw error;
@@ -104,7 +141,7 @@ class CognitoModel {
     try {
       const response = await this.client.send(command);
       Logger.info("Session refreshed successfully:", response);
-      return changeCasing(response);
+      return formatAPIResponse(response);
     } catch (error) {
       Logger.error("Error during session refresh:", error.message);
       throw error;
@@ -121,7 +158,7 @@ class CognitoModel {
       const command = new ForgotPasswordCommand(params);
       const forgotPasswordResponse = await this.client.send(command);
       Logger.info(`Password reset initiated for user: ${username}`);
-      return changeCasing(forgotPasswordResponse);
+      return formatAPIResponse(forgotPasswordResponse);
     } catch (error) {
       Logger.error("Error initiating forgot password:", error.message);
       throw error;
@@ -140,7 +177,7 @@ class CognitoModel {
       const command = new ConfirmForgotPasswordCommand(params);
       const confirmForgotPasswordResponse = await this.client.send(command);
       Logger.info("Password reset confirmed successfully");
-      return changeCasing(confirmForgotPasswordResponse);
+      return formatAPIResponse(confirmForgotPasswordResponse);
     } catch (error) {
       Logger.error("Error confirming password reset:", error.message);
       throw error;
