@@ -4,6 +4,7 @@ import {
   confirmForgotPasswordRoute,
   forgotPasswordRoute,
   refreshSessionRoute,
+  resendConfirmationCodeRoute,
   signInRoute,
   signUpRoute,
   verifySignupRoute,
@@ -22,6 +23,7 @@ const createRouter = () => {
   // get-started
   router.post("/signup", signUpRoute);
   router.post("/verify", verifySignupRoute);
+  router.post("/resend-verification-code", resendConfirmationCodeRoute);
   router.post("/signin", signInRoute);
   router.post("/forgotPassword", forgotPasswordRoute);
   router.post("/confirmForgotPassword", confirmForgotPasswordRoute);

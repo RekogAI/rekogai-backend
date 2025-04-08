@@ -20,8 +20,26 @@ export const handleApiResponse = (
   result,
   successMessage = "Request was successful"
 ) => {
+  Logger.info(" result instanceof Error", result instanceof Error, result);
+
   if (result instanceof Error) {
     Logger.error("Error Occurred", result);
+
+    // Check for CognitoError specifically to use its statusCode
+    if (result.name === "CognitoError") {
+      return res.status(result.statusCode || 500).json({
+        success: false,
+        status: result.statusCode || 500,
+        message: result.message || "An authentication error occurred",
+        data: null,
+        error: {
+          details: result.errorType || result.toString(),
+          errorType: result.errorType,
+        },
+      });
+    }
+
+    // Default error handling
     return res.status(500).json({
       success: false,
       status: 500,
