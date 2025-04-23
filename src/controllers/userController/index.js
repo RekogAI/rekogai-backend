@@ -21,7 +21,7 @@ export const resendConfirmationCodeRoute = asyncHandler(async (req, res) => {
 });
 
 export const signInRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await cognitoModelInstance.signIn(req.body);
+  const apiResponse = await cognitoModelInstance.signIn(req.body, res);
   return handleApiResponse(res, apiResponse);
 });
 
@@ -38,6 +38,6 @@ export const confirmForgotPasswordRoute = asyncHandler(async (req, res) => {
 });
 
 export const refreshSessionRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await cognitoModelInstance.refreshSession(req.body);
+  const apiResponse = await cognitoModelInstance.refreshSession(req, res);
   return handleApiResponse(res, apiResponse);
 });

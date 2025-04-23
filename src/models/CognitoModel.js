@@ -9,7 +9,7 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider";
 import Logger from "../lib/Logger.js";
 import UserModel from "./UserModel.js";
-import { formatSuccessResponse, handleError } from "../utility/index.js";
+import { formatErrorResponse, formatSuccessResponse, setCookies } from "../utility/index.js";
 import { handleCognitoError } from "../errors/cognito-errors.js";
 
 import configObj from "../config.js";
@@ -119,7 +119,7 @@ class CognitoModel {
     }
   }
 
-  async signIn({ username, password }) {
+  async signIn({ username, password }, res) {
     const params = {
       AuthFlow: "USER_PASSWORD_AUTH",
       ClientId: this.clientId,
@@ -136,33 +136,131 @@ class CognitoModel {
       Logger.info("Sign-in successful");
 
       const userDetails = await this.userModel.getUserByUsername(username);
-      const result = {
-        userAuth: response.AuthenticationResult,
-        userDetails,
-      };
-      return formatSuccessResponse(result, "Login successful");
+
+      const { AccessToken, RefreshToken, IdToken, ExpiresIn } =
+        response.AuthenticationResult;
+
+      console.log(
+        " CognitoModelsignIn response.AuthenticationResult",
+        response.AuthenticationResult
+      );
+      setCookies(
+        res,
+        {
+          access_token: AccessToken,
+          refresh_token: RefreshToken,
+          id_token: IdToken,
+        },
+        ExpiresIn
+      );
+
+      return formatSuccessResponse(
+        { ...userDetails, ExpiresIn },
+        "Login successful"
+      );
     } catch (error) {
       Logger.error("Sign in error:", error);
       throw handleCognitoError(error);
     }
   }
 
-  async refreshSession({ refreshToken }) {
-    const params = {
-      AuthFlow: "REFRESH_TOKEN_AUTH",
-      ClientId: this.clientId,
-      AuthParameters: {
-        REFRESH_TOKEN: refreshToken,
-      },
-    };
-
-    const command = new InitiateAuthCommand(params);
+  async refreshSession(req, res) {
     try {
+      Logger.info("Attempting to refresh session with token");
+
+      // Enhanced validation for refresh token
+      if (
+        !req.cookies ||
+        !req.cookies.refresh_token ||
+        req.cookies.refresh_token.trim() === ""
+      ) {
+        Logger.error("No refresh token found in cookies");
+        return formatErrorResponse(
+          401,
+          "No refresh token found. Please log in again."
+        );
+      }
+
+      const refreshToken = req.cookies.refresh_token;
+      Logger.info(
+        `Refresh token found. Token starts with: ${refreshToken.substring(0, 5)}...`
+      );
+
+      // Ensure the client and userPoolId are properly set
+      if (!this.clientId || !this.userPoolId) {
+        Logger.error("Missing Cognito configuration");
+        return formatErrorResponse(500, "Authentication service misconfigured");
+      }
+
+      const params = {
+        AuthFlow: "REFRESH_TOKEN_AUTH",
+        ClientId: this.clientId,
+        AuthParameters: {
+          REFRESH_TOKEN: refreshToken,
+        },
+      };
+
+      Logger.info("Sending refresh token request to Cognito");
+      const command = new InitiateAuthCommand(params);
       const response = await this.client.send(command);
       Logger.info("Session refreshed successfully");
-      return formatSuccessResponse(response, "Session refreshed successfully");
+
+      // Check if we have the expected result structure
+      if (
+        !response.AuthenticationResult ||
+        !response.AuthenticationResult.AccessToken
+      ) {
+        Logger.error("Invalid response from Cognito:", response);
+        return formatErrorResponse(
+          500,
+          "Authentication service returned an invalid response"
+        );
+      }
+
+      const { AccessToken, IdToken, ExpiresIn } = response.AuthenticationResult;
+
+      // Keep the existing RefreshToken if a new one wasn't provided
+      const newRefreshToken =
+        response.AuthenticationResult.RefreshToken || refreshToken;
+
+      // Set cookies with secure options and proper expiration
+      setCookies(
+        res,
+        {
+          access_token: AccessToken,
+          refresh_token: newRefreshToken,
+          id_token: IdToken,
+        },
+        ExpiresIn
+      );
+
+      return formatSuccessResponse(
+        { ExpiresIn },
+        "Session refreshed successfully"
+      );
     } catch (error) {
-      throw handleError(error);
+      Logger.error("Session refresh error:", error.message);
+
+      // Log more detailed error for debugging
+      if (error.name) {
+        Logger.error(`Error type: ${error.name}`);
+      }
+
+      // Clear the invalid cookies on authentication failure
+      if (
+        error.name === "NotAuthorizedException" ||
+        error.name === "InvalidParameterException"
+      ) {
+        res.clearCookie("access_token", { path: "/" });
+        res.clearCookie("refresh_token", { path: "/" });
+        res.clearCookie("id_token", { path: "/" });
+        return formatErrorResponse(
+          401,
+          "Session expired. Please log in again."
+        );
+      }
+
+      throw handleCognitoError(error);
     }
   }
 

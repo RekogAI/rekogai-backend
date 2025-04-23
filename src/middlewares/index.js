@@ -89,11 +89,10 @@ export const logRequest = (req, res, next) => {
 
 export const sessionMiddleware = async (req, res, next) => {
   try {
-    const JWT_TOKEN = req.body?.jwtToken;
+    const JWT_TOKEN = req.cookies.access_token;
     await verifier.verify(JWT_TOKEN);
     next();
   } catch {
-    console.log("Token not valid!", pa);
     res.status(403).json({
       success: false,
       status: 403,

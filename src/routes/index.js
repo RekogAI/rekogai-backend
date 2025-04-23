@@ -25,19 +25,19 @@ const createRouter = () => {
   router.post("/verify", verifySignupRoute);
   router.post("/resend-verification-code", resendConfirmationCodeRoute);
   router.post("/signin", signInRoute);
-  router.post("/forgotPassword", forgotPasswordRoute);
-  router.post("/confirmForgotPassword", confirmForgotPasswordRoute);
-  router.post("/refreshSession", sessionMiddleware, refreshSessionRoute);
+  router.post("/forgot-password", forgotPasswordRoute);
+  router.post("/confirm-forgot-password", confirmForgotPasswordRoute);
+  router.post("/refresh-session", refreshSessionRoute);
 
   // Add photos to a bucket
   router.post(
-    "/generatePreSignedURL",
+    "/generate-presignedurl",
     sessionMiddleware,
     generatePreSignedURLRoute
   );
 
   // Rekognition
-  router.post("/createAlbums", sessionMiddleware, createAlbumsRoute);
+  router.post("/create-albums", sessionMiddleware, createAlbumsRoute);
 
   return router;
 };
