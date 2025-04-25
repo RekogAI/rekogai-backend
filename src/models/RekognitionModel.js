@@ -3,7 +3,6 @@ import {
   CreateCollectionCommand,
   IndexFacesCommand,
   SearchFacesByImageCommand,
-  DetectFacesCommand,
 } from "@aws-sdk/client-rekognition";
 import { generateUUID } from "../utility/index.js";
 import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
@@ -14,9 +13,8 @@ import models from "../models/schemas/associations.js";
 import { API_TYPES, IMAGE_STATUS } from "../utility/constants.js";
 import sharp from "sharp";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import axios from "axios";
 import Thumbnail from "./schemas/thumbnails.js";
+import { handleRekognitionError } from "../errors/rekognition-errors.js";
 
 const { Face, Album, Image, APIResponse } = models;
 
@@ -624,9 +622,120 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
   return { message: "Image processing job completed" };
 };
 
+const registerFace = async ({ faceImage }) => {
+  if (!faceImage) {
+    throw new Error("Face image is required");
+  }
+
+  const collectionId = config[ENVIRONMENT].REKOGNITION_AUTH_COLLECTION_ID;
+
+  try {
+    // Step 1: Try to find if the face already exists in the collection
+    Logger.info(`Searching for existing face in collection: ${collectionId}`);
+
+    const searchCommand = new SearchFacesByImageCommand({
+      CollectionId: collectionId,
+      Image: { Bytes: Buffer.from(faceImage, "base64") },
+      MaxFaces: 1,
+      QualityFilter: "MEDIUM",
+      FaceMatchThreshold: 80,
+    });
+
+    const searchResponse = await rekognitionClient.send(searchCommand);
+
+    // If face already exists, return the matched face
+    if (searchResponse.FaceMatches && searchResponse.FaceMatches.length > 0) {
+      const faceMatch = searchResponse.FaceMatches[0];
+      Logger.info("Face already exists in collection:", {
+        faceId: faceMatch.Face.FaceId,
+        similarity: faceMatch.Similarity,
+      });
+
+      // Return existing face with additional context
+      return {
+        isNewFace: false,
+        faceId: faceMatch.Face.FaceId,
+        similarity: faceMatch.Similarity,
+      };
+    }
+
+    // Step 2: Face not found, so index it
+    Logger.info("Face not found in collection, indexing new face");
+
+    const indexCommand = new IndexFacesCommand({
+      CollectionId: collectionId,
+      Image: { Bytes: Buffer.from(faceImage, "base64") },
+      MaxFaces: 1,
+      QualityFilter: "MEDIUM",
+      DetectionAttributes: ["DEFAULT"],
+    });
+
+    const indexResponse = await rekognitionClient.send(indexCommand);
+
+    // Check if indexing was successful
+    if (!indexResponse.FaceRecords || indexResponse.FaceRecords.length === 0) {
+      throw new Error("No faces were detected in the provided image");
+    }
+
+    const indexedFace = indexResponse.FaceRecords[0];
+    Logger.info("Face indexed successfully:", {
+      faceId: indexedFace.Face.FaceId,
+    });
+
+    // Return newly indexed face
+    return {
+      isNewFace: true,
+      faceId: indexedFace.Face.FaceId,
+    };
+  } catch (error) {
+    throw handleRekognitionError(error);
+  }
+};
+
+const verifyFace = async ({ faceImage }) => {
+  if (!faceImage) {
+    throw new Error("Face image is required");
+  }
+
+  const collectionId = config[ENVIRONMENT].REKOGNITION_AUTH_COLLECTION_ID;
+
+  try {
+    const searchCommand = new SearchFacesByImageCommand({
+      CollectionId: collectionId,
+      Image: { Bytes: Buffer.from(faceImage, "base64") },
+      MaxFaces: 1,
+      QualityFilter: "MEDIUM",
+      FaceMatchThreshold: 80,
+    });
+
+    const searchResponse = await rekognitionClient.send(searchCommand);
+
+    if (searchResponse.FaceMatches && searchResponse.FaceMatches.length > 0) {
+      const faceMatch = searchResponse.FaceMatches[0];
+      Logger.info("Face found in collection:", {
+        faceId: faceMatch.Face.FaceId,
+        similarity: faceMatch.Similarity,
+      });
+
+      return {
+        faceId: faceMatch.Face.FaceId,
+        similarity: faceMatch.Similarity,
+      };
+    } else {
+      Logger.info("No matching faces found in collection");
+      return null;
+    }
+  } catch (error) {
+    Logger.error("Error searching for face:", error);
+    throw new Error("Failed to search for face: " + error.message);
+  }
+};
+
 export default {
   createCollection,
   getFacesByCollectionId,
   groupFacesIntoAlbums,
   startImageProcessingJob,
+  registerFace,
+  verifyFace,
 };
