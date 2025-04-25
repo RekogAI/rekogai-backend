@@ -20,8 +20,26 @@ export const handleApiResponse = (
   result,
   successMessage = "Request was successful"
 ) => {
+  Logger.info(" result instanceof Error", result instanceof Error, result);
+
   if (result instanceof Error) {
     Logger.error("Error Occurred", result);
+
+    // Check for CognitoError specifically to use its statusCode
+    if (result.name === "CognitoError") {
+      return res.status(result.statusCode || 500).json({
+        success: false,
+        status: result.statusCode || 500,
+        message: result.message || "An authentication error occurred",
+        data: null,
+        error: {
+          details: result.errorType || result.toString(),
+          errorType: result.errorType,
+        },
+      });
+    }
+
+    // Default error handling
     return res.status(500).json({
       success: false,
       status: 500,
@@ -71,11 +89,10 @@ export const logRequest = (req, res, next) => {
 
 export const sessionMiddleware = async (req, res, next) => {
   try {
-    const JWT_TOKEN = req.body?.jwtToken;
+    const JWT_TOKEN = req.cookies.access_token;
     await verifier.verify(JWT_TOKEN);
     next();
   } catch {
-    console.log("Token not valid!", pa);
     res.status(403).json({
       success: false,
       status: 403,

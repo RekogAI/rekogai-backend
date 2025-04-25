@@ -7,20 +7,18 @@ import {
 } from "@aws-sdk/client-rekognition";
 import { generateUUID } from "../utility/index.js";
 import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
-import configObj from "../config.js";
-import Logger from "../lib/Logger.js";
-import { Face, Album } from "../models/schemas/associations.js";
-import { IMAGE_STATUS } from "../utility/constants.js";
 import { DetectLabelsCommand } from "@aws-sdk/client-rekognition";
 import configObj from "../config.js";
 import Logger from "../lib/Logger.js";
-import { Face, Album, APIResponse } from "../models/schemas/associations.js";
+import models from "../models/schemas/associations.js";
 import { API_TYPES, IMAGE_STATUS } from "../utility/constants.js";
 import sharp from "sharp";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import axios from "axios";
 import Thumbnail from "./schemas/thumbnails.js";
+
+const { Face, Album, Image, APIResponse } = models;
 
 const { config, ENVIRONMENT } = configObj;
 

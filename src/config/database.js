@@ -13,7 +13,7 @@ const sequelize = new Sequelize(
     dialect: "postgres",
     host: config[ENVIRONMENT].POSTGRES_CONFIG.DB_HOST,
     port: config[ENVIRONMENT].POSTGRES_CONFIG.DB_PORT,
-    logging: ENVIRONMENT === "development" ? console.log : false,
+    logging: ENVIRONMENT === "development" ? false : false,
     pool: {
       max: 5,
       min: 0,
