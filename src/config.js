@@ -37,6 +37,7 @@ const config = {
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       },
     },
+    REKOGNITION_AUTH_COLLECTION_ID: process.env.REKOGNITION_AUTH_COLLECTION_ID,
   },
 };
 

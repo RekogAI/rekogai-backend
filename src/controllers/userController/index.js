@@ -1,5 +1,6 @@
 import { asyncHandler, handleApiResponse } from "../../middlewares/index.js";
 import CognitoModel from "../../models/CognitoModel.js";
+import RekognitionModel from "../../models/RekognitionModel.js";
 
 const cognitoModelInstance = new CognitoModel();
 
@@ -39,5 +40,15 @@ export const confirmForgotPasswordRoute = asyncHandler(async (req, res) => {
 
 export const refreshSessionRoute = asyncHandler(async (req, res) => {
   const apiResponse = await cognitoModelInstance.refreshSession(req, res);
+  return handleApiResponse(res, apiResponse);
+});
+
+export const registerFaceRoute = asyncHandler(async (req, res) => {
+  const apiResponse = await RekognitionModel.registerFace(req.body);
+  return handleApiResponse(res, apiResponse);
+});
+
+export const verifyFaceRoute = asyncHandler(async (req, res) => {
+  const apiResponse = await RekognitionModel.verifyFace(req.body);
   return handleApiResponse(res, apiResponse);
 });

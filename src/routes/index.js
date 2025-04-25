@@ -4,9 +4,11 @@ import {
   confirmForgotPasswordRoute,
   forgotPasswordRoute,
   refreshSessionRoute,
+  registerFaceRoute,
   resendConfirmationCodeRoute,
   signInRoute,
   signUpRoute,
+  verifyFaceRoute,
   verifySignupRoute,
 } from "../controllers/userController/index.js";
 import bodyParser from "body-parser";
@@ -28,6 +30,8 @@ const createRouter = () => {
   router.post("/forgot-password", forgotPasswordRoute);
   router.post("/confirm-forgot-password", confirmForgotPasswordRoute);
   router.post("/refresh-session", refreshSessionRoute);
+  router.post("/register-face", registerFaceRoute);
+  router.post("/verify-face", verifyFaceRoute);
 
   // Add photos to a bucket
   router.post(
