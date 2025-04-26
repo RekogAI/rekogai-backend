@@ -119,30 +119,21 @@ export const handleError = (error, req = null) => {
 /**
  * Response formatter for successful operations
  */
-export const formatSuccessResponse = (
+export const successResponse = (
   data = null,
-  message = "Operation successful"
+  message = "Operation successful",
+  statusCode = 200
 ) => {
   return {
     success: true,
+    statusCode,
     message,
     data,
     timestamp: new Date().toISOString(),
   };
 };
 
-/**
- * Response formatter for failed operations
- */
-export const formatErrorResponse = (error) => {
-  const apiError = error instanceof APIError ? error : handleError(error);
-
-  return {
-    success: false,
-    message: apiError.message,
-    statusCode: apiError.statusCode,
-    errorCode: apiError.errorCode,
-    details: apiError.details,
-    timestamp: new Date().toISOString(),
-  };
+// create a function to throw api error with status code, message and error code
+export const throwApiError = (statusCode, message, errorCode = null) => {
+  throw new APIError(message, statusCode, errorCode);
 };

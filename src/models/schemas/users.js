@@ -17,11 +17,28 @@ const User = sequelize.define(
     },
     password: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     metadata: {
       type: DataTypes.JSONB,
       allowNull: true,
+    },
+    registrationMethod: {
+      type: DataTypes.ENUM("EMAIL", "FACE_ID"),
+      defaultValue: "EMAIL",
+      allowNull: false,
+    },
+    lastLoginMethod: {
+      type: DataTypes.ENUM("EMAIL", "FACE_ID"),
+      allowNull: true,
+    },
+    faceImageUrl: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    isEmailVerified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
   },
   {

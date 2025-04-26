@@ -2,10 +2,10 @@ import { DataTypes } from "sequelize";
 import sequelize from "../../config/database.js";
 import { TABLE_NAME } from "../../utility/constants.js";
 
-const Collections = sequelize.define(
-  TABLE_NAME.COLLECTIONS,
+const Token = sequelize.define(
+  TABLE_NAME.TOKENS,
   {
-    collectionId: {
+    tokenId: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
@@ -20,17 +20,30 @@ const Collections = sequelize.define(
       onUpdate: "cascade",
       onDelete: "cascade",
     },
-    name: {
-      type: DataTypes.STRING,
+    token: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      unique: true,
+    },
+    tokenType: {
+      type: DataTypes.ENUM("ACCESS", "REFRESH", "ID"),
       allowNull: false,
     },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: true,
+    authMethod: {
+      type: DataTypes.ENUM("EMAIL", "FACE_ID"),
+      allowNull: false,
+    },
+    expiresAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    isRevoked: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
   },
   {
-    tableName: TABLE_NAME.COLLECTIONS,
+    tableName: TABLE_NAME.TOKENS,
     timestamps: true,
     freezeTableName: true,
     paranoid: true,
@@ -39,4 +52,4 @@ const Collections = sequelize.define(
   }
 );
 
-export default Collections;
+export default Token;

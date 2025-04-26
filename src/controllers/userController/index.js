@@ -5,12 +5,12 @@ import RekognitionModel from "../../models/RekognitionModel.js";
 const cognitoModelInstance = new CognitoModel();
 
 export const signUpRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await cognitoModelInstance.signUp(req.body);
+  const apiResponse = await cognitoModelInstance.signUp(req.body, res);
   return handleApiResponse(res, apiResponse);
 });
 
 export const verifySignupRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await cognitoModelInstance.confirmSignUp(req.body);
+  const apiResponse = await cognitoModelInstance.confirmSignUp(req.body, res);
   return handleApiResponse(res, apiResponse);
 });
 
@@ -50,5 +50,10 @@ export const registerFaceRoute = asyncHandler(async (req, res) => {
 
 export const verifyFaceRoute = asyncHandler(async (req, res) => {
   const apiResponse = await RekognitionModel.verifyFace(req.body);
+  return handleApiResponse(res, apiResponse);
+});
+
+export const logoutRoute = asyncHandler(async (req, res) => {
+  const apiResponse = await cognitoModelInstance.logout(req, res);
   return handleApiResponse(res, apiResponse);
 });

@@ -3,12 +3,11 @@ import { sessionMiddleware } from "../middlewares/index.js";
 import {
   confirmForgotPasswordRoute,
   forgotPasswordRoute,
+  logoutRoute,
   refreshSessionRoute,
-  registerFaceRoute,
   resendConfirmationCodeRoute,
   signInRoute,
   signUpRoute,
-  verifyFaceRoute,
   verifySignupRoute,
 } from "../controllers/userController/index.js";
 import bodyParser from "body-parser";
@@ -20,7 +19,9 @@ import {
 const createRouter = () => {
   const router = express.Router();
 
-  router.use(bodyParser.json({ limit: "50mb" }));
+  // Update body-parser limits to handle large files
+  router.use(bodyParser.json({ limit: "100mb", extended: true }));
+  router.use(bodyParser.urlencoded({ limit: "100mb", extended: true }));
 
   // get-started
   router.post("/signup", signUpRoute);
@@ -30,8 +31,9 @@ const createRouter = () => {
   router.post("/forgot-password", forgotPasswordRoute);
   router.post("/confirm-forgot-password", confirmForgotPasswordRoute);
   router.post("/refresh-session", refreshSessionRoute);
-  router.post("/register-face", registerFaceRoute);
-  router.post("/verify-face", verifyFaceRoute);
+  // router.post("/register-face", registerFaceRoute);
+  // router.post("/verify-face", verifyFaceRoute);
+  router.get("/logout", sessionMiddleware, logoutRoute);
 
   // Add photos to a bucket
   router.post(

@@ -7,6 +7,7 @@ export const TABLE_NAME = {
   FOLDERS: "folders",
   THUMBNAILS: "thumbnails",
   API_RESPONSES: "api_responses",
+  TOKENS: "tokens",
 };
 
 export const IMAGE_STATUS = {

@@ -73,10 +73,64 @@ export const setCookies = (res, cookies, ExpiresIn) => {
   }
 };
 
+export const errorResponse = (
+  statusCode = 500,
+  message = "Internal Server Error",
+  details = null
+) => {
+  // Log the error for server-side tracking
+  Logger.error(`Error ${statusCode}: ${message}`, details ? details : "");
+
+  // Return standardized error object
+  return {
+    success: false,
+    statusCode,
+    timestamp: new Date().toISOString(),
+    error: {
+      message,
+      ...(details && { details }),
+    },
+  };
+};
+
+export const handleCommonErrors = (error) => {
+  if (error.statusCode && error.error) {
+    // If error is already formatted, return as is
+    return error;
+  }
+
+  // Default error response
+  let statusCode = 500;
+  let message = "An unexpected error occurred";
+
+  // Map common error types to appropriate responses
+  if (error.name === "ValidationError") {
+    statusCode = 400;
+    message = "Validation error: " + error.message;
+  } else if (
+    error.name === "UnauthorizedError" ||
+    error.message.includes("unauthorized")
+  ) {
+    statusCode = 401;
+    message = "Authentication required";
+  } else if (error.name === "ForbiddenError") {
+    statusCode = 403;
+    message = "Access denied";
+  } else if (error.name === "NotFoundError") {
+    statusCode = 404;
+    message = "Resource not found";
+  }
+
+  return errorResponse(
+    statusCode,
+    message,
+    process.env.NODE_ENV === "development" ? error : null
+  );
+};
+
 export {
   APIError,
   ErrorTypes,
   handleError,
-  formatSuccessResponse,
-  formatErrorResponse,
+  successResponse,
 } from "./ErrorHandler.js";

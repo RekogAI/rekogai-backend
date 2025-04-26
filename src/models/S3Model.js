@@ -1,4 +1,8 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import configObj from "../config.js";
 import { generateUUID } from "../utility/index.js";
 import {
@@ -7,6 +11,7 @@ import {
 } from "../utility/constants.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import Logger from "../lib/Logger.js";
+import crypto from "crypto";
 import { Image } from "./index.js";
 
 const { config, ENVIRONMENT } = configObj;
@@ -124,9 +129,62 @@ const savePostUploadImageDetails = async ({ imageId, fileLocationInS3 }) => {
   }
 };
 
+const uploadFaceImage = async (faceImage, username) => {
+  try {
+    Logger.info(`Uploading face image for user: ${username}`);
+
+    // Remove data:image prefix if exists
+    let imageData = faceImage;
+    if (faceImage.includes("base64,")) {
+      imageData = faceImage.split("base64,")[1];
+    }
+
+    // Convert base64 to buffer
+    const buffer = Buffer.from(imageData, "base64");
+
+    // Generate a unique filename
+    const randomId = crypto.randomBytes(8).toString("hex");
+    const timestamp = Date.now();
+    const extension = "jpg";
+    const key = `${username.replace("@", "_at_")}_${timestamp}_${randomId}.${extension}`;
+
+    // Set up S3 upload parameters
+    const params = {
+      Bucket: configObj.config[ENVIRONMENT].REKOGNITION_AUTH_BUCKET_NAME,
+      Key: key,
+      Body: buffer,
+      ContentType: `image/${extension}`,
+      ContentEncoding: "base64",
+    };
+
+    // Upload to S3
+    const command = new PutObjectCommand(params);
+    const uploadResult = await s3Client.send(command);
+    Logger.info(" uploadFaceImage uploadResult", uploadResult);
+
+    // Generate a pre-signed URL for the uploaded image (valid for 1 hour)
+    const getObjectCommand = new PutObjectCommand(params);
+    const signedUrl = await getSignedUrl(s3Client, getObjectCommand, {
+      expiresIn: 3600,
+    });
+
+    Logger.info(`Face image uploaded successfully to ${key}`);
+
+    return {
+      key,
+      signedUrl,
+      imageUrl: `https://${configObj.config[ENVIRONMENT].REKOGNITION_AUTH_BUCKET_NAME}.s3.${configObj.AWS_REGION}.amazonaws.com/${key}`,
+    };
+  } catch (error) {
+    Logger.error("Error uploading face image to S3:", error);
+    throw new Error(`Failed to upload face image: ${error.message}`);
+  }
+};
+
 const S3Model = {
   generatePreSignedURL,
   savePostUploadImageDetails,
+  uploadFaceImage,
 };
 
 export default S3Model;

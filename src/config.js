@@ -38,6 +38,7 @@ const config = {
       },
     },
     REKOGNITION_AUTH_COLLECTION_ID: process.env.REKOGNITION_AUTH_COLLECTION_ID,
+    REKOGNITION_AUTH_BUCKET_NAME: process.env.REKOGNITION_AUTH_BUCKET_NAME,
   },
 };
 

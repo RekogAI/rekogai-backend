@@ -2,7 +2,11 @@ import Logger from "../lib/Logger.js";
 import { performance } from "perf_hooks";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import configObj from "../config.js";
+import TokenModel from "../models/TokenModel.js";
+import { throwApiError } from "../utility/ErrorHandler.js";
+
 const { config, ENVIRONMENT } = configObj;
+const tokenModel = new TokenModel();
 
 // Verifier that expects valid access tokens:
 const verifier = CognitoJwtVerifier.create({
@@ -90,17 +94,45 @@ export const logRequest = (req, res, next) => {
 export const sessionMiddleware = async (req, res, next) => {
   try {
     const JWT_TOKEN = req.cookies.access_token;
-    await verifier.verify(JWT_TOKEN);
+
+    // Check if the token exists
+    if (!JWT_TOKEN) {
+      throwApiError(403, "Access forbidden invalid token", "INVALID_TOKEN");
+    }
+
+    const tokenRecord = await verifyFaceAuthToken(JWT_TOKEN);
+
+    if (!tokenRecord) {
+      throw new Error("Invalid face authentication token");
+    }
+
+    req.user = {
+      userId: tokenRecord.user.userId,
+      email: tokenRecord.user.email,
+    };
+
     next();
-  } catch {
+  } catch (error) {
+    Logger.error("Session middleware error:", error);
     res.status(403).json({
       success: false,
       status: 403,
       message: "Access forbidden invalid token",
       data: null,
       error: {
-        details: "Access forbidden invalid token",
+        details: error.message || "Access forbidden invalid token",
       },
     });
   }
 };
+
+// Helper function to verify face auth tokens against the database
+async function verifyFaceAuthToken(token) {
+  try {
+    const tokenRecord = await tokenModel.verifyToken(token, "ACCESS");
+    return tokenRecord;
+  } catch (error) {
+    Logger.error("Face auth token verification error:", error);
+    return null;
+  }
+}
