@@ -10,7 +10,7 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider";
 import Logger from "../lib/Logger.js";
 import UserModel from "./UserModel.js";
-import { successResponse, setCookies } from "../utility/index.js";
+import { setCookies } from "../utility/index.js";
 import { handleCognitoError } from "../errors/cognito-errors.js";
 
 import configObj from "../config.js";
@@ -20,9 +20,8 @@ import models from "../models/schemas/associations.js";
 import S3Model from "./S3Model.js";
 import { throwApiError } from "../utility/ErrorHandler.js";
 const { User } = models;
-import crypto from "crypto";
 import TokenModel from "./TokenModel.js";
-
+import bcrypt from "bcrypt";
 /**
  * Class for handling authentication operations using AWS Cognito
  */
@@ -80,21 +79,19 @@ class CognitoModel {
 
     const command = new SignUpCommand(params);
     try {
-      const response = await this.client.send(command);
+      await this.client.send(command);
       Logger.info("Sign-up successful");
+
+      const hashedPassword = await this.hashPassword(password);
 
       const createdUser = await User.create({
         email: username,
-        password,
+        password: hashedPassword,
         registrationMethod: "EMAIL",
         lastLoginMethod: "EMAIL",
       });
 
-      return successResponse(
-        { ...createdUser, ...response },
-        "User registered successfully",
-        201
-      );
+      return createdUser.toJSON();
     } catch (error) {
       Logger.error("Signup error:", error);
       throw handleCognitoError(error);
@@ -129,20 +126,17 @@ class CognitoModel {
         lastLoginMethod: "FACE_ID",
       });
 
-      await this.generateTokenAndSetCookies(res, createdUser.userId);
+      await this.generateTokenAndSetCookies(res, createdUser.userId, "FACE_ID");
 
-      return successResponse(
-        {
-          user: createdUser,
-          faceRegistration: registerFaceResponse,
-          signedUrl: s3UploadResult.signedUrl,
-        },
-        "User registered successfully with face recognition",
-        201
-      );
+      return {
+        user: createdUser.toJSON(),
+        faceRegistration: registerFaceResponse,
+        signedUrl: s3UploadResult.signedUrl,
+      };
     } catch (error) {
       Logger.error("Face registration error:", error);
-      throwApiError(500, error.message, error.name);
+      console.error("Error during face registration:", error);
+      throw error;
     }
   }
 
@@ -178,12 +172,9 @@ class CognitoModel {
         { where: { email: username } }
       );
 
-      await this.generateTokenAndSetCookies(res, userExists.userId);
+      await this.generateTokenAndSetCookies(res, userExists.userId, "EMAIL");
 
-      return successResponse(
-        { ...userExists, isEmailVerified: emailVerified > 0 },
-        "User confirmed successfully"
-      );
+      return { ...userExists, isEmailVerified: emailVerified > 0 };
     } catch (error) {
       Logger.error("Confirm signup error:", error);
       throw handleCognitoError(error);
@@ -207,16 +198,12 @@ class CognitoModel {
 
     try {
       const response = await this.client.send(command);
+      Logger.info(" CognitoModelresendConfirmationCode response", response);
       Logger.info(
         `Confirmation code resent successfully for user: ${username}`
       );
 
-      return successResponse(
-        {
-          deliveryDetails: response.CodeDeliveryDetails,
-        },
-        "Verification code has been resent"
-      );
+      return { successMessage: "Verification code has been resent" };
     } catch (error) {
       Logger.error("Resend confirmation code error:", error);
       throw handleCognitoError(error);
@@ -271,9 +258,9 @@ class CognitoModel {
         { where: { email: username } }
       );
 
-      await this.generateTokenAndSetCookies(res, userDetails.userId);
+      await this.generateTokenAndSetCookies(res, userDetails.userId, "EMAIL");
 
-      return successResponse({ ...userDetails, ExpiresIn }, "Login successful");
+      return { ...userDetails };
     } catch (error) {
       Logger.error("Email sign in error:", error);
       throw handleCognitoError(error);
@@ -319,18 +306,21 @@ class CognitoModel {
         { where: { email: username } }
       );
 
-      await this.generateTokenAndSetCookies(res, user.userId);
+      // get signed URL for the face image extract key from user.faceImageUrl
+      const faceImageKey = user?.faceImageUrl.split("/").pop();
+      const signedUrl = await S3Model.getPresignedUrl(faceImageKey);
+      Logger.info("Signed URL for face image:", signedUrl);
 
-      return successResponse(
-        {
-          ...user.toJSON(),
-          ExpiresIn: expiresIn,
-          faceVerification: faceVerificationResult,
-        },
-        "Login successful with face recognition"
-      );
+      await this.generateTokenAndSetCookies(res, user.userId, "FACE_ID");
+
+      return {
+        ...user.toJSON(),
+        faceVerification: faceVerificationResult,
+        signedUrl,
+      };
     } catch (error) {
       Logger.error("Face ID sign in error:", error);
+      console.error("Error during face ID sign in:", error);
       throw handleCognitoError(error);
     }
   }
@@ -343,76 +333,53 @@ class CognitoModel {
    */
   async refreshSession(req, res) {
     try {
-      Logger.info("Attempting to refresh session with token");
+      Logger.info("Processing refresh session request");
 
-      if (
-        !req.cookies?.refresh_token ||
-        req.cookies.refresh_token.trim() === ""
-      ) {
-        Logger.error("No refresh token found in cookies");
-        throwApiError(401, "No refresh token found");
+      // Check if refresh token exists in cookies
+      const refreshToken = req.cookies?.refresh_token;
+      if (!refreshToken) {
+        return throwApiError(401, "No refresh token provided");
       }
 
-      const refreshToken = req.cookies.refresh_token;
-      Logger.info(
-        `Refresh token found. Token starts with: ${refreshToken.substring(0, 5)}...`
+      // Verify the refresh token
+      const tokenData = await this.tokenModel.verifyToken(
+        refreshToken,
+        "REFRESH"
+      );
+      if (!tokenData || tokenData.type !== "REFRESH") {
+        return throwApiError(401, "Invalid refresh token");
+      }
+
+      // Check if token is expired
+      if (tokenData.expiresAt < Math.floor(Date.now() / 1000)) {
+        return throwApiError(401, "Refresh token expired");
+      }
+
+      // Get user from database
+      const user = await User.findByPk(tokenData.userId).then((user) =>
+        user.toJSON()
       );
 
-      if (!this.clientId) {
-        Logger.error("Missing Cognito configuration");
-        throwApiError(500, "Cognito configuration is missing");
+      if (!user) {
+        return throwApiError(404, "User not found");
       }
 
-      const params = {
-        ...this._getBaseParams(),
-        AuthFlow: "REFRESH_TOKEN_AUTH",
-        AuthParameters: {
-          REFRESH_TOKEN: refreshToken,
-        },
-      };
-
-      Logger.info("Sending refresh token request to Cognito");
-      const command = new InitiateAuthCommand(params);
-      const response = await this.client.send(command);
-      Logger.info("Session refreshed successfully");
-
-      if (!response.AuthenticationResult?.AccessToken) {
-        Logger.error("Invalid response from Cognito:", response);
-        throwApiError(500, "Invalid response from Cognito");
-      }
-
-      const { AccessToken, IdToken, ExpiresIn } = response.AuthenticationResult;
-      const newRefreshToken =
-        response.AuthenticationResult.RefreshToken || refreshToken;
-
-      setCookies(
+      // Generate new tokens
+      await this.generateTokenAndSetCookies(
         res,
-        {
-          access_token: AccessToken,
-          refresh_token: newRefreshToken,
-          id_token: IdToken,
-        },
-        ExpiresIn
+        user.userId,
+        tokenData.authMethod
       );
 
-      return successResponse({ ExpiresIn }, "Session refreshed successfully");
+      Logger.info("Session refreshed successfully");
+      return {
+        successMessage: "Session refreshed successfully",
+        user,
+      };
     } catch (error) {
-      Logger.error("Session refresh error:", error.message);
-
-      if (error.name) {
-        Logger.error(`Error type: ${error.name}`);
-      }
-
-      if (
-        ["NotAuthorizedException", "InvalidParameterException"].includes(
-          error.name
-        )
-      ) {
-        this._clearAuthCookies(res);
-        throwApiError(401, "Session expired. Please log in again.");
-      }
-
-      throw handleCognitoError(error);
+      Logger.error("Refresh session error:", error);
+      this._clearAuthCookies(res);
+      throw error;
     }
   }
 
@@ -429,7 +396,7 @@ class CognitoModel {
       if (!req.cookies?.access_token) {
         Logger.warn("No access token found during logout");
         this._clearAuthCookies(res);
-        return successResponse({}, "Logged out successfully");
+        return { successMessage: "Logged out successfully" };
       }
 
       const accessToken = req.cookies.access_token;
@@ -446,7 +413,7 @@ class CognitoModel {
       // Clear auth cookies
       this._clearAuthCookies(res);
 
-      return successResponse({}, "Logged out successfully");
+      return { successMessage: "Logged out successfully" };
     } catch (error) {
       Logger.error("Logout error:", error);
 
@@ -454,7 +421,7 @@ class CognitoModel {
       this._clearAuthCookies(res);
 
       if (error.name === "NotAuthorizedException") {
-        return successResponse({}, "Already logged out");
+        return { successMessage: "Already logged out" };
       }
 
       throw handleCognitoError(error);
@@ -487,14 +454,19 @@ class CognitoModel {
       const forgotPasswordResponse = await this.client.send(command);
       Logger.info(`Password reset initiated for user: ${username}`);
 
-      return successResponse(
-        forgotPasswordResponse,
-        "Password reset initiated"
-      );
+      return {
+        successMessage: "Password reset initiated",
+      };
     } catch (error) {
       Logger.error("Forgot password error:", error);
       throw handleCognitoError(error);
     }
+  }
+
+  async hashPassword(password) {
+    const saltRounds = config[ENVIRONMENT].SALT_ROUNDS;
+    const pepperedPassword = `${password}${config[ENVIRONMENT].PASSWORD_PEPPER}`;
+    return bcrypt.hash(pepperedPassword, Number(saltRounds));
   }
 
   /**
@@ -513,12 +485,29 @@ class CognitoModel {
 
       const command = new ConfirmForgotPasswordCommand(params);
       const confirmForgotPasswordResponse = await this.client.send(command);
-      Logger.info("Password reset confirmed successfully");
-
-      return successResponse(
-        confirmForgotPasswordResponse,
-        "Password has been reset successfully"
+      Logger.info(
+        "Password reset confirmed successfully",
+        confirmForgotPasswordResponse
       );
+
+      // update password in the database
+      const user = await User.findOne({ where: { email: username } });
+      if (!user) {
+        return throwApiError(404, "User not found");
+      }
+
+      // Hash the new password before storing it
+      const hashedPassword = await this.hashPassword(newPassword);
+
+      const [updatedPassword] = await User.update(
+        { password: hashedPassword },
+        { where: { email: username } }
+      );
+
+      return {
+        successMessage: "Password has been reset successfully",
+        updatedPassword: updatedPassword > 0,
+      };
     } catch (error) {
       Logger.error("Confirm forgot password error:", error);
       throw handleCognitoError(error);
@@ -530,27 +519,27 @@ class CognitoModel {
    * @param {Object} res - Express response object for setting cookies
    * @param {Object} user - User details
    */
-  async generateTokenAndSetCookies(res, userId) {
+  async generateTokenAndSetCookies(res, userId, authMethod) {
     const expiresIn = 3600; // 1 hour
 
     const accessToken = await this.tokenModel.generateToken(
       userId,
       "ACCESS",
-      "FACE_ID",
+      authMethod,
       expiresIn
     );
 
     const refreshToken = await this.tokenModel.generateToken(
       userId,
       "REFRESH",
-      "FACE_ID",
+      authMethod,
       24 * 60 * 60 // 1 day
     );
 
     const idToken = await this.tokenModel.generateToken(
       userId,
       "ID",
-      "FACE_ID",
+      authMethod,
       expiresIn
     );
 

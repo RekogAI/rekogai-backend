@@ -651,7 +651,6 @@ const registerFace = async ({ faceImage }) => {
         similarity: faceMatch.Similarity,
       });
 
-      // Return existing face with additional context
       return {
         isNewFace: false,
         faceId: faceMatch.Face.FaceId,
@@ -717,6 +716,7 @@ const verifyFace = async ({ faceImage }) => {
         similarity: faceMatch.Similarity,
       });
 
+      
       return {
         faceId: faceMatch.Face.FaceId,
         similarity: faceMatch.Similarity,

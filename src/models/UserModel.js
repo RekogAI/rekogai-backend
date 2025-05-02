@@ -1,6 +1,7 @@
 import Logger from "../lib/Logger.js";
 import { generateUUID } from "../utility/index.js";
 import models from "../models/schemas/associations.js";
+import { throwApiError } from "../utility/ErrorHandler.js";
 
 class UserModel {
   constructor() {
@@ -45,8 +46,12 @@ class UserModel {
         where: { email },
       });
 
+      if (!user) {
+        throwApiError(404, "User not found", "USER_NOT_FOUND");
+      }
+
       Logger.info("User fetched successfully by email:", user);
-      return user;
+      return user.toJSON();
     } catch (error) {
       Logger.error("Error fetching user by email:", error.message);
       throw error;

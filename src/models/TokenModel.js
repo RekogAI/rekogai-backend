@@ -75,7 +75,7 @@ class TokenModel {
         ],
       });
 
-      return tokenRecord;
+      return tokenRecord.toJSON();
     } catch (error) {
       Logger.error("Token verification error:", error);
       return null;

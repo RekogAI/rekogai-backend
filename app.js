@@ -43,23 +43,6 @@ if (ENVIRONMENT === "development") {
       await sequelize.authenticate();
       Logger.info("Database connection established.");
 
-      try {
-        await sequelize.query(`
-          CREATE TABLE IF NOT EXISTS collections (
-            "collectionId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            "userId" UUID NOT NULL,
-            "name" VARCHAR(255) NOT NULL,
-            "description" TEXT,
-            "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
-            "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL,
-            "deletedAt" TIMESTAMP WITH TIME ZONE
-          );
-        `);
-        Logger.info("Collections table created or already exists");
-      } catch (tableErr) {
-        Logger.error("Error creating collections table:", tableErr);
-      }
-
       // Simpler sync approach
       await sequelize.sync({ force: false });
 

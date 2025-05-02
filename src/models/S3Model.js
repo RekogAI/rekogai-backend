@@ -181,10 +181,28 @@ const uploadFaceImage = async (faceImage, username) => {
   }
 };
 
+const getPresignedUrl = async (imageId) => {
+  const command = new GetObjectCommand({
+    Bucket: configObj.config[ENVIRONMENT].REKOGNITION_AUTH_BUCKET_NAME,
+    Key: imageId,
+  });
+
+  try {
+    const signedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: PRESIGNED_URL_EXPIRES_IN.AN_HOUR,
+    });
+    return signedUrl;
+  } catch (error) {
+    Logger.error("Error generating pre-signed URL:", error);
+    throw error;
+  }
+};
+
 const S3Model = {
   generatePreSignedURL,
   savePostUploadImageDetails,
   uploadFaceImage,
+  getPresignedUrl,
 };
 
 export default S3Model;
