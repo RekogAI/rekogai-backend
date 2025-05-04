@@ -79,7 +79,7 @@ export const ErrorTypes = {
  */
 export const handleError = (error, req = null) => {
   // Log the error
-  Logger.error(error.message, {
+  console.error(error.message, {
     errorName: error.name,
     statusCode: error.statusCode || 500,
     errorCode: error.errorCode,

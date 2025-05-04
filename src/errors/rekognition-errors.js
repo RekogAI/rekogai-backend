@@ -10,7 +10,7 @@ class RekognitionError extends Error {
 }
 
 export const handleRekognitionError = (error) => {
-  Logger.error("Rekognition Error:", error);
+  console.error("Rekognition Error:", error);
 
   // Extract error name
   const errorName = error.name || "UnknownError";

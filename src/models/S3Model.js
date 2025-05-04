@@ -33,7 +33,7 @@ const savePreUploadImageDetails = async ({
     });
 
     if (existingImage) {
-      Logger.info("Image already uploaded with same name:", existingImage);
+      console.log("Image already uploaded with same name:", existingImage);
       return existingImage;
     }
 
@@ -52,10 +52,10 @@ const savePreUploadImageDetails = async ({
       ),
     });
 
-    Logger.info("Image details saved to PostgreSQL:", createdImageDetails);
+    console.log("Image details saved to PostgreSQL:", createdImageDetails);
     return createdImageDetails;
   } catch (error) {
-    Logger.error("Error saving image details to PostgreSQL ", error);
+    console.error("Error saving image details to PostgreSQL ", error);
     throw error;
   }
 };
@@ -72,7 +72,7 @@ const generatePreSignedURL = async ({ bucketName, fileDetails, userId }) => {
       expiresIn: PRESIGNED_URL_EXPIRES_IN.AN_HOUR,
     });
 
-    Logger.info("Signed URL:", signedUrl);
+    console.log("Signed URL:", signedUrl);
 
     const savedImageDetails = await savePreUploadImageDetails({
       signedUrl,
@@ -86,7 +86,7 @@ const generatePreSignedURL = async ({ bucketName, fileDetails, userId }) => {
       preSignedURL: signedUrl,
     };
   } catch (error) {
-    Logger.error(
+    console.error(
       "Error generating pre-signed URL or saving to PostgreSQL:",
       error
     );
@@ -111,7 +111,7 @@ const savePostUploadImageDetails = async ({ imageId, fileLocationInS3 }) => {
         where: { imageId },
       }
     );
-    Logger.info("Image details saved to PostgreSQL:", {
+    console.log("Image details saved to PostgreSQL:", {
       imageId,
       fileLocationInS3,
     });
@@ -121,7 +121,7 @@ const savePostUploadImageDetails = async ({ imageId, fileLocationInS3 }) => {
       uploadedAt: new Date(),
     };
   } catch (error) {
-    Logger.error(" savePostUploadImageDetails error", error);
+    console.error(" savePostUploadImageDetails error", error);
     return {
       fileStatus: IMAGE_STATUS.FAILED_TO_UPLOAD_TO_S3,
       uploadedAt: null,
@@ -131,7 +131,7 @@ const savePostUploadImageDetails = async ({ imageId, fileLocationInS3 }) => {
 
 const uploadFaceImage = async (faceImage, username) => {
   try {
-    Logger.info(`Uploading face image for user: ${username}`);
+    console.log(`Uploading face image for user: ${username}`);
 
     // Remove data:image prefix if exists
     let imageData = faceImage;
@@ -145,7 +145,7 @@ const uploadFaceImage = async (faceImage, username) => {
     // Generate a unique filename
     const randomId = crypto.randomBytes(8).toString("hex");
     const timestamp = Date.now();
-    const extension = "jpg";
+    const extension = "png";
     const key = `${username.replace("@", "_at_")}_${timestamp}_${randomId}.${extension}`;
 
     // Set up S3 upload parameters
@@ -156,11 +156,12 @@ const uploadFaceImage = async (faceImage, username) => {
       ContentType: `image/${extension}`,
       ContentEncoding: "base64",
     };
+    console.log(" uploadFaceImage params", params);
 
     // Upload to S3
     const command = new PutObjectCommand(params);
     const uploadResult = await s3Client.send(command);
-    Logger.info(" uploadFaceImage uploadResult", uploadResult);
+    console.log(" uploadFaceImage uploadResult", uploadResult);
 
     // Generate a pre-signed URL for the uploaded image (valid for 1 hour)
     const getObjectCommand = new PutObjectCommand(params);
@@ -168,7 +169,7 @@ const uploadFaceImage = async (faceImage, username) => {
       expiresIn: 3600,
     });
 
-    Logger.info(`Face image uploaded successfully to ${key}`);
+    console.log(`Face image uploaded successfully to ${key}`);
 
     return {
       key,
@@ -176,7 +177,7 @@ const uploadFaceImage = async (faceImage, username) => {
       imageUrl: `https://${configObj.config[ENVIRONMENT].REKOGNITION_AUTH_BUCKET_NAME}.s3.${configObj.AWS_REGION}.amazonaws.com/${key}`,
     };
   } catch (error) {
-    Logger.error("Error uploading face image to S3:", error);
+    console.error("Error uploading face image to S3:", error);
     throw new Error(`Failed to upload face image: ${error.message}`);
   }
 };
@@ -193,7 +194,7 @@ const getPresignedUrl = async (imageId) => {
     });
     return signedUrl;
   } catch (error) {
-    Logger.error("Error generating pre-signed URL:", error);
+    console.error("Error generating pre-signed URL:", error);
     throw error;
   }
 };

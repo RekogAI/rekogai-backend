@@ -10,7 +10,7 @@ class CognitoError extends Error {
 }
 
 export const handleCognitoError = (error) => {
-  Logger.error("Cognito Error:", error);
+  console.error("Cognito Error:", error);
 
   // Extract error name
   const errorName = error.name || "UnknownError";

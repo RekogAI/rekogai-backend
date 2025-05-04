@@ -18,10 +18,10 @@ class UserModel {
         password,
       });
 
-      Logger.info("User created successfully:", newUser);
+      console.log("User created successfully:", newUser);
       return newUser;
     } catch (error) {
-      Logger.error("Error creating user:", error.message);
+      console.error("Error creating user:", error.message);
       throw error;
     }
   }
@@ -32,10 +32,10 @@ class UserModel {
         where: { userId },
       });
 
-      Logger.info("User fetched successfully:", user);
+      console.log("User fetched successfully:", user);
       return user;
     } catch (error) {
-      Logger.error("Error fetching user:", error.message);
+      console.error("Error fetching user:", error.message);
       throw error;
     }
   }
@@ -44,16 +44,13 @@ class UserModel {
     try {
       const user = await this.User.findOne({
         where: { email },
+        raw: true,
       });
 
-      if (!user) {
-        throwApiError(404, "User not found", "USER_NOT_FOUND");
-      }
-
-      Logger.info("User fetched successfully by email:", user);
-      return user.toJSON();
+      console.log("User fetched successfully by email:", user);
+      return user;
     } catch (error) {
-      Logger.error("Error fetching user by email:", error.message);
+      console.error("Error fetching user by email:", error.message);
       throw error;
     }
   }
@@ -71,10 +68,10 @@ class UserModel {
         }
       );
 
-      Logger.info("User updated successfully:", updatedRows[0]);
+      console.log("User updated successfully:", updatedRows[0]);
       return updatedRows[0];
     } catch (error) {
-      Logger.error("Error updating user:", error.message);
+      console.error("Error updating user:", error.message);
       throw error;
     }
   }
@@ -85,10 +82,10 @@ class UserModel {
         where: { userId },
       });
 
-      Logger.info("User deleted successfully, count:", deletedRowCount);
+      console.log("User deleted successfully, count:", deletedRowCount);
       return deletedRowCount > 0;
     } catch (error) {
-      Logger.error("Error deleting user:", error.message);
+      console.error("Error deleting user:", error.message);
       throw error;
     }
   }

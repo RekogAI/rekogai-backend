@@ -23,6 +23,7 @@ export const resendConfirmationCodeRoute = asyncHandler(async (req, res) => {
 
 export const signInRoute = asyncHandler(async (req, res) => {
   const apiResponse = await cognitoModelInstance.signIn(req.body, res);
+  console.log(" signInRoute apiResponse", apiResponse);
   return handleApiResponse(res, apiResponse);
 });
 

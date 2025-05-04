@@ -33,7 +33,7 @@ class TokenModel {
         expiresAt,
       });
 
-      Logger.info(`Generated ${tokenType} token for user ${userId}`);
+      console.log(`Generated ${tokenType} token for user ${userId}`);
 
       return {
         token,
@@ -41,7 +41,7 @@ class TokenModel {
         tokenId: tokenRecord.tokenId,
       };
     } catch (error) {
-      Logger.error("Token generation error:", error);
+      console.error("Token generation error:", error);
       throw new Error(`Failed to generate token: ${error.message}`);
     }
   }
@@ -77,7 +77,7 @@ class TokenModel {
 
       return tokenRecord.toJSON();
     } catch (error) {
-      Logger.error("Token verification error:", error);
+      console.error("Token verification error:", error);
       return null;
     }
   }
@@ -96,7 +96,7 @@ class TokenModel {
 
       return updatedCount > 0;
     } catch (error) {
-      Logger.error("Token revocation error:", error);
+      console.error("Token revocation error:", error);
       return false;
     }
   }
@@ -125,7 +125,7 @@ class TokenModel {
 
       return updatedCount;
     } catch (error) {
-      Logger.error("Bulk token revocation error:", error);
+      console.error("Bulk token revocation error:", error);
       return 0;
     }
   }
@@ -150,10 +150,10 @@ class TokenModel {
         },
       });
 
-      Logger.info(`Cleaned up ${deletedCount} expired tokens`);
+      console.log(`Cleaned up ${deletedCount} expired tokens`);
       return deletedCount;
     } catch (error) {
-      Logger.error("Token cleanup error:", error);
+      console.error("Token cleanup error:", error);
       return 0;
     }
   }

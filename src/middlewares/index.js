@@ -24,10 +24,10 @@ export const handleApiResponse = (
   result,
   successMessage = "Request was successful"
 ) => {
-  Logger.info(" result instanceof Error", result instanceof Error, result);
+  console.log(" result instanceof Error", result instanceof Error, result);
 
   if (result instanceof Error) {
-    Logger.error("Error Occurred", result);
+    console.error("Error Occurred", result);
 
     // Check for CognitoError specifically to use its statusCode
     if (result.name === "CognitoError") {
@@ -83,7 +83,7 @@ export const logRequest = (req, res, next) => {
   // Capture the response status code after the response is finished
   res.on("finish", () => {
     const duration = performance.now() - start;
-    Logger.info(
+    console.log(
       `Request ${req.method} ${req.originalUrl} ${res.statusCode} - ${duration.toFixed(2)}ms`
     );
   });
@@ -113,7 +113,7 @@ export const sessionMiddleware = async (req, res, next) => {
 
     next();
   } catch (error) {
-    Logger.error("Session middleware error:", error);
+    console.error("Session middleware error:", error);
     res.status(403).json({
       success: false,
       status: 403,
@@ -132,7 +132,7 @@ async function verifyFaceAuthToken(token) {
     const tokenRecord = await tokenModel.verifyToken(token, "ACCESS");
     return tokenRecord;
   } catch (error) {
-    Logger.error("Face auth token verification error:", error);
+    console.error("Face auth token verification error:", error);
     return null;
   }
 }

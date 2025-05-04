@@ -36,7 +36,7 @@ export const formatAPIResponse = (data) => {
 export const setCookies = (res, cookies, ExpiresIn) => {
   if (cookies && typeof cookies === "object") {
     const isProduction = process.env.NODE_ENV === "production";
-    Logger.info(
+    console.log(
       `Setting cookies in ${isProduction ? "production" : "development"} mode`
     );
 
@@ -79,7 +79,7 @@ export const errorResponse = (
   details = null
 ) => {
   // Log the error for server-side tracking
-  Logger.error(`Error ${statusCode}: ${message}`, details ? details : "");
+  console.error(`Error ${statusCode}: ${message}`, details ? details : "");
 
   // Return standardized error object
   return {

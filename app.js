@@ -34,30 +34,30 @@ if (ENVIRONMENT === "development") {
   (async () => {
     try {
       // Log models before sync
-      Logger.info(
+      console.log(
         "Available models before sync:",
         Object.keys(sequelize.models)
       );
 
       // Check database connection
       await sequelize.authenticate();
-      Logger.info("Database connection established.");
+      console.log("Database connection established.");
 
       // Simpler sync approach
       await sequelize.sync({ force: false });
 
-      Logger.info("Database synced successfully.");
+      console.log("Database synced successfully.");
 
       // Verify tables after sync
       const [results] = await sequelize.query(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
       );
-      Logger.info(
+      console.log(
         "Tables created:",
         results.map((r) => r.table_name).join(", ")
       );
     } catch (err) {
-      Logger.error("Sync error:", err);
+      console.error("Sync error:", err);
     }
   })();
 }
@@ -70,7 +70,7 @@ app.use((req, res, next) => {
 // Enhanced error handler with specific handling for PayloadTooLargeError
 app.use((err, req, res, next) => {
   // Log the error for debugging
-  Logger.error(err.stack);
+  console.error(err.stack);
 
   // Handle payload too large errors specifically
   if (err.type === "entity.too.large" || err.name === "PayloadTooLargeError") {
@@ -100,7 +100,7 @@ app.use((err, req, res, next) => {
 // Optional: Close Sequelize on app shutdown (for graceful shutdown)
 process.on("SIGTERM", async () => {
   await sequelize.close();
-  Logger.info("Database connection closed");
+  console.log("Database connection closed");
   process.exit(0);
 });
 

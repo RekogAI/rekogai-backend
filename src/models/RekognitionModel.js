@@ -3,6 +3,7 @@ import {
   CreateCollectionCommand,
   IndexFacesCommand,
   SearchFacesByImageCommand,
+  CompareFacesCommand,
 } from "@aws-sdk/client-rekognition";
 import { generateUUID } from "../utility/index.js";
 import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
@@ -32,13 +33,13 @@ const createCollection = async () => {
       CollectionId: collectionId,
     });
     const response = await rekognitionClient.send(command);
-    Logger.info("Face collection created:", response);
+    console.log("Face collection created:", response);
     return { collectionId };
   } catch (error) {
     if (error.name === "ResourceAlreadyExistsException") {
       return "Collection already exists.";
     } else {
-      Logger.error("Error creating collection:", error);
+      console.error("Error creating collection:", error);
       throw error;
     }
   }
@@ -49,14 +50,14 @@ const getFacesByCollectionId = async (collectionId) => {
     const faces = await Face.findAll({
       where: { collection_id: collectionId },
     });
-    Logger.info("Faces retrieved:", faces);
+    console.log("Faces retrieved:", faces);
 
     return faces.map((item) => ({
       ...item.dataValues,
       face_attributes: JSON.parse(item.face_attributes),
     }));
   } catch (error) {
-    Logger.error("Error querying faces by CollectionId:", error);
+    console.error("Error querying faces by CollectionId:", error);
     throw error;
   }
 };
@@ -67,14 +68,14 @@ const searchIndexedFaces = async ({ bucketName, key }) => {
       where: { bucket_name: bucketName, image_key: key },
     });
     if (face) {
-      Logger.info("Face found in PostgreSQL:", face);
+      console.log("Face found in PostgreSQL:", face);
       return face.dataValues;
     } else {
-      Logger.info("Face not found in PostgreSQL.");
+      console.log("Face not found in PostgreSQL.");
       return null;
     }
   } catch (error) {
-    Logger.error("Error searching for face in PostgreSQL:", error);
+    console.error("Error searching for face in PostgreSQL:", error);
     return null;
   }
 };
@@ -101,11 +102,11 @@ const storeIndexedFaces = async ({ response, collectionId, imageId }) => {
     }));
 
     const createdFaceRecords = await Face.bulkCreate(faceRecordsToCreate);
-    Logger.info("Face records created in Face table:", faceRecordsToCreate);
+    console.log("Face records created in Face table:", faceRecordsToCreate);
 
     return createdFaceRecords;
   } catch (error) {
-    Logger.error("Error storing indexed faces in PostgreSQL:", error);
+    console.error("Error storing indexed faces in PostgreSQL:", error);
     throw error;
   }
 };
@@ -120,18 +121,18 @@ const indexFaces = async ({ bucketName, key, collectionId, imageId }) => {
       DetectionAttributes: ["DEFAULT"],
     });
     const response = await rekognitionClient.send(command);
-    Logger.info(`Faces indexed for ${key}:`, response.FaceRecords);
+    console.log(`Faces indexed for ${key}:`, response.FaceRecords);
 
     const savedFaces = await storeIndexedFaces({
       response,
       collectionId,
       imageId,
     });
-    Logger.info("Store indexed faces response:", savedFaces);
+    console.log("Store indexed faces response:", savedFaces);
 
     return response;
   } catch (error) {
-    Logger.error("Error indexing faces:", error);
+    console.error("Error indexing faces:", error);
     throw error;
   }
 };
@@ -148,10 +149,10 @@ const searchFacesByImage = async ({ bucketName, key, collectionId }) => {
       FaceMatchThreshold: 90, // face match threshold
     });
     const response = await rekognitionClient.send(command);
-    Logger.info(`Found similar faces for ${key}:`, response.FaceMatches);
+    console.log(`Found similar faces for ${key}:`, response.FaceMatches);
     return response;
   } catch (error) {
-    Logger.error("Error searching faces by image:", error);
+    console.error("Error searching faces by image:", error);
     throw error;
   }
 };
@@ -165,7 +166,7 @@ const groupFacesIntoAlbums = async ({ bucketName, collectionId }) => {
     const albums = {};
 
     for (const key of objectKeys) {
-      Logger.info(`Processing: ${key}`);
+      console.log(`Processing: ${key}`);
       const faceMatches = await searchFacesByImage({
         bucketName,
         key,
@@ -186,10 +187,10 @@ const groupFacesIntoAlbums = async ({ bucketName, collectionId }) => {
       }
     }
 
-    Logger.info("Albums created:", albums);
+    console.log("Albums created:", albums);
     return albums;
   } catch (error) {
-    Logger.error("Error grouping faces into albums:", error);
+    console.error("Error grouping faces into albums:", error);
     throw error;
   }
 };
@@ -215,13 +216,13 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
         offset,
         raw: true,
       });
-      Logger.info("Images fetched from database:", {
+      console.log("Images fetched from database:", {
         images,
         length: images.length,
       });
       return images;
     } catch (error) {
-      Logger.error("Error fetching images from database:", error);
+      console.error("Error fetching images from database:", error);
       throw error;
     }
   };
@@ -285,7 +286,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
         ],
       });
       const response = await rekognitionClient.send(detectLabelsCommand);
-      Logger.info("DetectLabels response", response);
+      console.log("DetectLabels response", response);
 
       const apiResponse = await APIResponse.create({
         userId,
@@ -294,7 +295,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
         type: API_TYPES.DETECT_LABELS.key,
       });
 
-      Logger.info("API response stored in database for type:", {
+      console.log("API response stored in database for type:", {
         type: API_TYPES.DETECT_LABELS.value,
         apiResponse,
       });
@@ -316,11 +317,11 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
           )
       ).length;
 
-      Logger.info(
+      console.log(
         `Number of labels in include categories: ${numberOfLabelsInIncludeCategories}`
       );
 
-      Logger.info(
+      console.log(
         hasLabelsInIncludeCategories
           ? "Labels detected in include categories."
           : "No labels detected in include categories."
@@ -378,7 +379,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
       };
 
       const isSuitable = isImageQualitySufficient(response);
-      Logger.info(
+      console.log(
         isSuitable
           ? "Image quality is sufficient for facial recognition."
           : "Image quality is insufficient."
@@ -390,7 +391,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
         facesCount: numberOfLabelsInIncludeCategories,
       };
     } catch (error) {
-      Logger.error("Error detecting faces:", error);
+      console.error("Error detecting faces:", error);
       return false;
     }
   };
@@ -488,7 +489,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
         });
       }
     }
-    Logger.info(
+    console.log(
       "sendImageBatchToRekognition faceIdToImageIdsMap",
       faceIdToImageIdsMap
     );
@@ -504,9 +505,9 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
         imageIds: JSON.stringify(faceIdToImageIdsMap[faceId]),
       }));
       await Album.bulkCreate(albumsToCreate);
-      Logger.info("All albums created successfully.");
+      console.log("All albums created successfully.");
     } catch (error) {
-      Logger.error("Error creating albums:", error);
+      console.error("Error creating albums:", error);
       throw error;
     }
   };
@@ -521,7 +522,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
   let pageNumber = 0;
   const pageSize = 50;
   while (images.length > 0) {
-    Logger.info(" startImageProcessingJob pageNumber", pageNumber);
+    console.log(" startImageProcessingJob pageNumber", pageNumber);
     const s3KeysArray = createImageBatch(images);
     const filteredImages = await filterImagesWithFaces(s3KeysArray);
     const faceIdToImageIdsMap = await sendImageBatchToRekognition(
@@ -602,7 +603,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
       });
 
       await Promise.all(thumbnailPromises);
-      Logger.info("Thumbnails created for all faces.");
+      console.log("Thumbnails created for all faces.");
 
       const thumbnails = thumbnailPromises.map((thumbnail) => ({
         faceId: thumbnail.faceId,
@@ -610,10 +611,10 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
       }));
 
       await Thumbnail.bulkCreate(thumbnails);
-      Logger.info("Thumbnails entries created in Thumbnails table.");
+      console.log("Thumbnails entries created in Thumbnails table.");
       return { successMessage: "Thumbnails created successfully." };
     } catch (error) {
-      Logger.error("Error creating thumbnails for faces:", error);
+      console.error("Error creating thumbnails for faces:", error);
       throw error;
     }
   };
@@ -631,7 +632,7 @@ const registerFace = async ({ faceImage }) => {
 
   try {
     // Step 1: Try to find if the face already exists in the collection
-    Logger.info(`Searching for existing face in collection: ${collectionId}`);
+    console.log(`Searching for existing face in collection: ${collectionId}`);
 
     const searchCommand = new SearchFacesByImageCommand({
       CollectionId: collectionId,
@@ -646,7 +647,7 @@ const registerFace = async ({ faceImage }) => {
     // If face already exists, return the matched face
     if (searchResponse.FaceMatches && searchResponse.FaceMatches.length > 0) {
       const faceMatch = searchResponse.FaceMatches[0];
-      Logger.info("Face already exists in collection:", {
+      console.log("Face already exists in collection:", {
         faceId: faceMatch.Face.FaceId,
         similarity: faceMatch.Similarity,
       });
@@ -659,7 +660,7 @@ const registerFace = async ({ faceImage }) => {
     }
 
     // Step 2: Face not found, so index it
-    Logger.info("Face not found in collection, indexing new face");
+    console.log("Face not found in collection, indexing new face");
 
     const indexCommand = new IndexFacesCommand({
       CollectionId: collectionId,
@@ -677,7 +678,7 @@ const registerFace = async ({ faceImage }) => {
     }
 
     const indexedFace = indexResponse.FaceRecords[0];
-    Logger.info("Face indexed successfully:", {
+    console.log("Face indexed successfully:", {
       faceId: indexedFace.Face.FaceId,
     });
 
@@ -711,23 +712,121 @@ const verifyFace = async ({ faceImage }) => {
 
     if (searchResponse.FaceMatches && searchResponse.FaceMatches.length > 0) {
       const faceMatch = searchResponse.FaceMatches[0];
-      Logger.info("Face found in collection:", {
+      console.log("Face found in collection:", {
         faceId: faceMatch.Face.FaceId,
         similarity: faceMatch.Similarity,
       });
 
-      
       return {
         faceId: faceMatch.Face.FaceId,
         similarity: faceMatch.Similarity,
       };
     } else {
-      Logger.info("No matching faces found in collection");
+      console.log("No matching faces found in collection");
       return null;
     }
   } catch (error) {
-    Logger.error("Error searching for face:", error);
+    console.error("Error searching for face:", error);
     throw new Error("Failed to search for face: " + error.message);
+  }
+};
+
+const streamToBuffer = async (stream) => {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on("data", (chunk) => chunks.push(chunk));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+  });
+};
+
+const authenticateFace = async ({ s3ImageKey, faceImage: faceImageBase64 }) => {
+  console.log(` authenticateFace `, {
+    s3ImageKey,
+    faceImageBase64: faceImageBase64
+      ? `${faceImageBase64.substring(0, 50)}...`
+      : null,
+  });
+
+  if (!s3ImageKey) {
+    throw new Error("S3 image key is required");
+  }
+
+  if (!faceImageBase64) {
+    throw new Error("Face image base64 data is required");
+  }
+
+  try {
+    // Get the registered face image from S3
+    const getObjectCommand = new GetObjectCommand({
+      Bucket: config[ENVIRONMENT].REKOGNITION_AUTH_BUCKET_NAME,
+      Key: s3ImageKey,
+    });
+    const imageStream = await s3Client.send(getObjectCommand);
+    const imageBuffer = await streamToBuffer(imageStream.Body);
+
+    // Process the incoming base64 image
+    let faceImageBuffer;
+
+    // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+    let cleanBase64 = faceImageBase64;
+    if (faceImageBase64.includes("base64,")) {
+      cleanBase64 = faceImageBase64.split("base64,")[1];
+    }
+
+    // Convert base64 to buffer
+    try {
+      faceImageBuffer = Buffer.from(cleanBase64, "base64");
+
+      // Simple validation to check if the buffer is a valid image
+      if (faceImageBuffer.length < 100) {
+        throw new Error(
+          "Decoded image buffer is too small, likely not a valid image"
+        );
+      }
+    } catch (error) {
+      console.error("Error converting base64 to buffer:", error);
+      throw new Error(
+        "Invalid image format: Unable to process the provided image"
+      );
+    }
+
+    // Compare the two images using compareFacesCommand
+    const compareFacesCommand = new CompareFacesCommand({
+      SourceImage: {
+        Bytes: faceImageBuffer, // Use the buffer, not the base64 string
+      },
+      TargetImage: {
+        Bytes: imageBuffer,
+      },
+      SimilarityThreshold: 80,
+    });
+
+    const compareFacesResponse =
+      await rekognitionClient.send(compareFacesCommand);
+    console.log("Compare faces response:", compareFacesResponse);
+
+    // Check if the face matches
+    if (
+      compareFacesResponse.FaceMatches &&
+      compareFacesResponse.FaceMatches.length > 0
+    ) {
+      const faceMatch = compareFacesResponse.FaceMatches[0];
+      console.log("Face matched successfully:", {
+        similarity: faceMatch.Similarity,
+        isAuthenticated: true,
+      });
+      return {
+        isAuthenticated: true,
+        similarity: faceMatch.Similarity,
+      };
+    } else {
+      console.log("No matching faces found");
+      return { isAuthenticated: false };
+    }
+  } catch (error) {
+    console.error("authenticateFace error", error);
+    throw error;
   }
 };
 
@@ -738,4 +837,5 @@ export default {
   startImageProcessingJob,
   registerFace,
   verifyFace,
+  authenticateFace,
 };

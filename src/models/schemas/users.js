@@ -35,6 +35,12 @@ const User = sequelize.define(
     faceImageUrl: {
       type: DataTypes.STRING(255),
       allowNull: true,
+      comment: "s3 object URL for the face image",
+    },
+    faceImageKey: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: "s3 Key for the face image",
     },
     isEmailVerified: {
       type: DataTypes.BOOLEAN,
