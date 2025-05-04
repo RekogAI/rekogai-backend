@@ -1,14 +1,3 @@
-import Logger from "../lib/Logger.js";
-
-class CognitoError extends Error {
-  constructor(message, statusCode, errorType) {
-    super(message);
-    this.name = "CognitoError";
-    this.statusCode = statusCode;
-    this.errorType = errorType;
-  }
-}
-
 export const handleCognitoError = (error) => {
   console.error("Cognito Error:", error);
 
@@ -116,6 +105,10 @@ export const handleCognitoError = (error) => {
       message: "Username already exists",
       statusCode: 409,
     },
+    InvalidPasswordException: {
+      message: "Password does not meet the policy requirements",
+      statusCode: 400,
+    },
   };
 
   // Server-side errors (500 range)
@@ -129,13 +122,25 @@ export const handleCognitoError = (error) => {
   // Find the specific error or use default
   const errorDetails = clientErrors[errorName] ||
     serverErrors[errorName] || {
-      message: `An error occurred: ${error.message || "Unknown error"}`,
+      message: `${error.message || "Unknown error"}`,
       statusCode: error.statusCode || 500,
     };
 
-  return new CognitoError(
-    errorDetails.message,
-    errorDetails.statusCode,
-    errorName
-  );
+  return {
+    statusCode: errorDetails.statusCode,
+    message: errorDetails.message,
+    errorName,
+    toResponse: () => {
+      return {
+        success: false,
+        service: "AWS_COGNITO",
+        error: {
+          status: errorDetails.statusCode,
+          code: errorName,
+          message: errorDetails.message,
+          ...(errorDetails.details && { details: errorDetails.details }),
+        },
+      };
+    },
+  };
 };

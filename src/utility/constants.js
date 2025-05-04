@@ -34,3 +34,8 @@ export const API_TYPES = {
   },
   INDEX_FACES: { key: "INDEX_FACES", value: "IndexFaces" },
 };
+
+export const SIGN_UP_METHODS = {
+  FACE_ID: "FACE_ID",
+  EMAIL: "EMAIL",
+};

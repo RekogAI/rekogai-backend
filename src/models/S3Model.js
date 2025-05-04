@@ -129,14 +129,14 @@ const savePostUploadImageDetails = async ({ imageId, fileLocationInS3 }) => {
   }
 };
 
-const uploadFaceImage = async (faceImage, username) => {
+const uploadFaceAuthImage = async (faceIDImageBase64, username) => {
   try {
     console.log(`Uploading face image for user: ${username}`);
 
     // Remove data:image prefix if exists
-    let imageData = faceImage;
-    if (faceImage.includes("base64,")) {
-      imageData = faceImage.split("base64,")[1];
+    let imageData = faceIDImageBase64;
+    if (faceIDImageBase64.includes("base64,")) {
+      imageData = faceIDImageBase64.split("base64,")[1];
     }
 
     // Convert base64 to buffer
@@ -156,12 +156,12 @@ const uploadFaceImage = async (faceImage, username) => {
       ContentType: `image/${extension}`,
       ContentEncoding: "base64",
     };
-    console.log(" uploadFaceImage params", params);
+    console.log(" uploadFaceAuthImage params", params);
 
     // Upload to S3
     const command = new PutObjectCommand(params);
     const uploadResult = await s3Client.send(command);
-    console.log(" uploadFaceImage uploadResult", uploadResult);
+    console.log(" uploadFaceAuthImage uploadResult", uploadResult);
 
     // Generate a pre-signed URL for the uploaded image (valid for 1 hour)
     const getObjectCommand = new PutObjectCommand(params);
@@ -174,12 +174,16 @@ const uploadFaceImage = async (faceImage, username) => {
     return {
       key,
       signedUrl,
-      imageUrl: `https://${configObj.config[ENVIRONMENT].REKOGNITION_AUTH_BUCKET_NAME}.s3.${configObj.AWS_REGION}.amazonaws.com/${key}`,
+      imageUrl: generateObjectUrl(key),
     };
   } catch (error) {
     console.error("Error uploading face image to S3:", error);
     throw new Error(`Failed to upload face image: ${error.message}`);
   }
+};
+
+const generateObjectUrl = (key) => {
+  return `https://${configObj.config[ENVIRONMENT].REKOGNITION_AUTH_BUCKET_NAME}.s3.${configObj.AWS_REGION}.amazonaws.com/${key}`;
 };
 
 const getPresignedUrl = async (imageId) => {
@@ -202,7 +206,7 @@ const getPresignedUrl = async (imageId) => {
 const S3Model = {
   generatePreSignedURL,
   savePostUploadImageDetails,
-  uploadFaceImage,
+  uploadFaceAuthImage,
   getPresignedUrl,
 };
 

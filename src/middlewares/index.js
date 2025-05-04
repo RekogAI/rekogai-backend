@@ -3,7 +3,9 @@ import { performance } from "perf_hooks";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import configObj from "../config.js";
 import TokenModel from "../models/TokenModel.js";
-import { throwApiError } from "../utility/ErrorHandler.js";
+import { ApiError, throwApiError } from "../utility/ErrorHandler.js";
+import { handleCognitoError } from "../errors/cognito-errors.js";
+import { handleRekognitionError } from "../errors/rekognition-errors.js";
 
 const { config, ENVIRONMENT } = configObj;
 const tokenModel = new TokenModel();
@@ -136,3 +138,41 @@ async function verifyFaceAuthToken(token) {
     return null;
   }
 }
+
+export const errorHandler = (err, req, res, next) => {
+  console.error("API Error:", {
+    url: req.originalUrl,
+    method: req.method,
+    error: err.message,
+    stack: err.stack,
+  });
+
+  if (err instanceof ApiError) {
+    return res.status(err.statusCode).json(err.toResponse());
+  }
+
+  if (err.name && err.name === "CognitoError") {
+    const cognitoError = handleCognitoError(err);
+    return res.status(cognitoError.statusCode).json(cognitoError.toResponse());
+  }
+
+  if (err.name && err.name === "RekognitionError") {
+    const rekognitionError = handleRekognitionError(err);
+    return res
+      .status(rekognitionError.statusCode)
+      .json(rekognitionError.toResponse());
+  }
+
+  // Handle all other errors
+  return res.status(500).json({
+    success: false,
+    error: {
+      status: 500,
+      code: "SERVER_ERROR",
+      message:
+        process.env.NODE_ENV === "production"
+          ? "An unexpected error occurred"
+          : err.message,
+    },
+  });
+};

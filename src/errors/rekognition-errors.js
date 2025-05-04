@@ -10,8 +10,6 @@ class RekognitionError extends Error {
 }
 
 export const handleRekognitionError = (error) => {
-  console.error("Rekognition Error:", error);
-
   // Extract error name
   const errorName = error.name || "UnknownError";
 
@@ -91,9 +89,21 @@ export const handleRekognitionError = (error) => {
       statusCode: error.statusCode || 500,
     };
 
-  return new RekognitionError(
-    errorDetails.message,
-    errorDetails.statusCode,
-    errorName
-  );
+  return {
+    statusCode: errorDetails.statusCode,
+    message: errorDetails.message,
+    errorName,
+    toResponse: () => {
+      return {
+        success: false,
+        service: "AWS_REKOGNITION",
+        error: {
+          status: errorDetails.statusCode,
+          code: errorName,
+          message: errorDetails.message,
+          ...(errorDetails.details && { details: errorDetails.details }),
+        },
+      };
+    },
+  };
 };

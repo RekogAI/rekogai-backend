@@ -65,12 +65,7 @@ class TokenModel {
           {
             model: models.User,
             as: "user",
-            attributes: [
-              "userId",
-              "email",
-              "registrationMethod",
-              "lastLoginMethod",
-            ],
+            attributes: ["userId", "email", "signUpMethod", "lastLoginMethod"],
           },
         ],
       });

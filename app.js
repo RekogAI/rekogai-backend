@@ -4,7 +4,7 @@ import path from "path";
 import cookieParser from "cookie-parser";
 
 import createRouter from "./src/routes/index.js";
-import { logRequest } from "./src/middlewares/index.js";
+import { errorHandler, logRequest } from "./src/middlewares/index.js";
 import Logger from "./src/lib/Logger.js";
 import configObj from "./src/config.js";
 const { ENVIRONMENT, corsOptions } = configObj;
@@ -67,35 +67,8 @@ app.use((req, res, next) => {
   next(createError(404));
 });
 
-// Enhanced error handler with specific handling for PayloadTooLargeError
-app.use((err, req, res, next) => {
-  // Log the error for debugging
-  console.error(err.stack);
-
-  // Handle payload too large errors specifically
-  if (err.type === "entity.too.large" || err.name === "PayloadTooLargeError") {
-    return res.status(413).json({
-      success: false,
-      error: {
-        status: 413,
-        message:
-          "Request entity too large. Please reduce the size of your upload.",
-      },
-    });
-  }
-
-  // Prepare error response for other errors
-  const status = err.status || err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-
-  res.status(status).json({
-    success: false,
-    error: {
-      status,
-      message,
-    },
-  });
-});
+// Custom error handler to format errors
+app.use(errorHandler);
 
 // Optional: Close Sequelize on app shutdown (for graceful shutdown)
 process.on("SIGTERM", async () => {

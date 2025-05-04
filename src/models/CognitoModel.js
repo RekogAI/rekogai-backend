@@ -11,17 +11,22 @@ import {
 import Logger from "../lib/Logger.js";
 import UserModel from "./UserModel.js";
 import { setCookies } from "../utility/index.js";
-import { handleCognitoError } from "../errors/cognito-errors.js";
-
 import configObj from "../config.js";
 import RekognitionModel from "./RekognitionModel.js";
 const { config, ENVIRONMENT, AWS_REGION } = configObj;
 import models from "../models/schemas/associations.js";
 import S3Model from "./S3Model.js";
-import { throwApiError } from "../utility/ErrorHandler.js";
+import { ApiError, throwApiError } from "../utility/ErrorHandler.js";
+import {
+  API_ERROR_CODES,
+  API_ERROR_MESSAGES,
+  API_ERROR_STATUS_CODES,
+} from "../utility/constants.error.js";
 const { User } = models;
 import TokenModel from "./TokenModel.js";
 import bcrypt from "bcrypt";
+import { SIGN_UP_METHODS } from "../utility/constants.js";
+
 /**
  * Class for handling authentication operations using AWS Cognito
  */
@@ -53,66 +58,91 @@ class CognitoModel {
    */
   async signUp(reqBody, res) {
     console.log("Processing signup request");
-    const { username, password, attributes, registrationMethod, faceImage } =
-      reqBody;
+    const { username, password, signUpMethod, faceIDImageBase64 } = reqBody;
 
-    if (registrationMethod === "EMAIL") {
-      return this._emailSignUp(username, password, attributes);
-    } else if (registrationMethod === "FACE_ID") {
-      return this._faceIdSignUp(username, faceImage, res);
+    if (signUpMethod === SIGN_UP_METHODS.EMAIL) {
+      return this._emailSignUp(username, password, res);
+    } else if (signUpMethod === SIGN_UP_METHODS.FACE_ID) {
+      return this._faceIdSignUp(username, faceIDImageBase64, res);
     }
 
-    return throwApiError(400, "Invalid registration method", "INVALID_METHOD");
+    throwApiError(
+      API_ERROR_STATUS_CODES.BAD_REQUEST,
+      API_ERROR_MESSAGES.INVALID_METHOD,
+      API_ERROR_CODES.INVALID_METHOD
+    );
   }
 
   /**
    * Handle email-based registration
    * @private
    */
-  async _emailSignUp(username, password, attributes) {
-    const params = {
-      ...this._getBaseParams(),
-      Username: username,
-      Password: password,
-      UserAttributes: attributes,
-    };
-
-    const command = new SignUpCommand(params);
+  async _emailSignUp(username, password, res) {
     try {
-      // Check if user already exists
       const userExists = await this.userModel.getUserByUsername(username);
       console.log(" CognitoModel_emailSignUp userExists", userExists);
-      if (userExists && userExists.registrationMethod === "FACE_ID") {
-        return throwApiError(
-          409,
-          "User already exists with face ID registration method",
-          "USER_EXISTS_WITH_DIFFERENT_METHOD"
+
+      if (userExists && userExists.signUpMethod === SIGN_UP_METHODS.FACE_ID) {
+        throwApiError(
+          API_ERROR_STATUS_CODES.CONFLICT,
+          API_ERROR_MESSAGES.USER_EXISTS_WITH_DIFFERENT_METHOD,
+          API_ERROR_CODES.USER_EXISTS_WITH_DIFFERENT_METHOD
         );
       }
+
       if (userExists && !userExists.isEmailVerified) {
         return this.resendConfirmationCode({
           username,
         });
       } else if (userExists && userExists.isEmailVerified) {
-        throwApiError(409, "User already exists", "USER_ALREADY_EXISTS");
+        throwApiError(
+          API_ERROR_STATUS_CODES.CONFLICT,
+          API_ERROR_MESSAGES.USER_ALREADY_EXISTS,
+          API_ERROR_CODES.USER_ALREADY_EXISTS
+        );
       }
 
-      await this.client.send(command);
-      console.log("Sign-up successful");
+      const params = {
+        ...this._getBaseParams(),
+        Username: username,
+        Password: password,
+      };
+
+      console.log("signupCommand params", params);
+
+      const command = new SignUpCommand(params);
+      console.log(" CognitoModel_emailSignUp command", command);
+
+      const signUpCommandResponse = await this.client.send(command);
+
+      console.log(
+        "CognitoModel_emailSignUp signUpCommandResponse",
+        signUpCommandResponse
+      );
 
       const hashedPassword = await this.hashPassword(password);
 
       const createdUser = await User.create({
         email: username,
         password: hashedPassword,
-        registrationMethod: "EMAIL",
-        lastLoginMethod: "EMAIL",
-      });
+        signUpMethod: SIGN_UP_METHODS.EMAIL,
+        lastLoginMethod: SIGN_UP_METHODS.EMAIL,
+      }).then((user) => user.toJSON());
+      console.log(" CognitoModel_emailSignUp createdUser", createdUser);
 
-      return createdUser.toJSON();
+      // Return user without hashed password
+      const { password: _, ...userWithoutPassword } = createdUser;
+
+      await this.generateTokenAndSetCookies(
+        res,
+        createdUser.userId,
+        SIGN_UP_METHODS.EMAIL
+      );
+
+      return userWithoutPassword;
     } catch (error) {
       console.error("Signup error:", error);
-      throw handleCognitoError(error);
+      throw error;
     }
   }
 
@@ -120,44 +150,58 @@ class CognitoModel {
    * Handle face ID based registration
    * @private
    */
-  async _faceIdSignUp(username, faceImage, res) {
+  async _faceIdSignUp(username, faceIDImageBase64, res) {
+    if (!username || !faceIDImageBase64) {
+      throwApiError(
+        API_ERROR_CODES.BAD_REQUEST,
+        API_ERROR_MESSAGES.INVALID_PARAMETERS,
+        API_ERROR_CODES.INVALID_PARAMETERS
+      );
+    }
     try {
-      const registerFaceResponse = await RekognitionModel.registerFace({
-        faceImage,
-      });
+      const registerFaceResponse =
+        await RekognitionModel.registerFaceAuth(faceIDImageBase64);
 
       const { isNewFace, faceId } = registerFaceResponse;
 
       if (!isNewFace) {
-        return throwApiError(
-          409,
-          "Face already registered",
-          "FACE_ALREADY_REGISTERED"
+        throwApiError(
+          API_ERROR_STATUS_CODES.CONFLICT,
+          API_ERROR_MESSAGES.FACE_ALREADY_REGISTERED,
+          API_ERROR_CODES.FACE_ALREADY_REGISTERED
         );
       }
 
       // Upload face image to S3
-      const s3UploadResult = await S3Model.uploadFaceImage(faceImage, username);
+      const s3UploadResult = await S3Model.uploadFaceAuthImage(
+        faceIDImageBase64,
+        username
+      );
       console.log("Face image uploaded to S3:", s3UploadResult);
 
       // Create user in database with face image reference
       const createdUser = await User.create({
         email: username,
-        faceImageUrl: s3UploadResult.imageUrl,
-        registrationMethod: "FACE_ID",
-        lastLoginMethod: "FACE_ID",
-        faceImageKey: s3UploadResult.key,
-      });
+        faceIDS3Url: s3UploadResult.imageUrl,
+        signUpMethod: SIGN_UP_METHODS.FACE_ID,
+        lastLoginMethod: SIGN_UP_METHODS.FACE_ID,
+        faceIDS3Key: s3UploadResult.key,
+      }).then((user) => user.toJSON());
 
-      await this.generateTokenAndSetCookies(res, createdUser.userId, "FACE_ID");
+      await this.generateTokenAndSetCookies(
+        res,
+        createdUser.userId,
+        SIGN_UP_METHODS.FACE_ID
+      );
+
+      // Return user without hashed password
+      const { password: _, ...userWithoutPassword } = createdUser;
 
       return {
-        user: createdUser.toJSON(),
-        faceRegistration: registerFaceResponse,
+        ...userWithoutPassword,
         signedUrl: s3UploadResult.signedUrl,
       };
     } catch (error) {
-      console.error("Face registration error:", error);
       console.error("Error during face registration:", error);
       throw error;
     }
@@ -168,16 +212,22 @@ class CognitoModel {
    * @param {Object} params - Confirmation parameters
    * @returns {Promise<Object>} Confirmation result
    */
-  async confirmSignUp({ username, confirmationCode }, res) {
-    const params = {
-      ...this._getBaseParams(),
-      Username: username,
-      ConfirmationCode: confirmationCode,
-    };
-
-    const command = new ConfirmSignUpCommand(params);
-
+  async confirmSignUp({ username, confirmationCode, signUpMethod }, res) {
     try {
+      if (!username || !confirmationCode) {
+        throwApiError(
+          API_ERROR_STATUS_CODES.BAD_REQUEST,
+          API_ERROR_MESSAGES.INVALID_PARAMETERS,
+          API_ERROR_CODES.INVALID_PARAMETERS
+        );
+      }
+      const params = {
+        ...this._getBaseParams(),
+        Username: username,
+        ConfirmationCode: confirmationCode,
+      };
+
+      const command = new ConfirmSignUpCommand(params);
       const confirmSignUpResponse = await this.client.send(command);
       console.log(
         "User confirmed successfully in Cognito",
@@ -195,12 +245,16 @@ class CognitoModel {
         { where: { email: username } }
       );
 
-      await this.generateTokenAndSetCookies(res, userExists.userId, "EMAIL");
+      await this.generateTokenAndSetCookies(
+        res,
+        userExists.userId,
+        signUpMethod
+      );
 
       return { ...userExists, isEmailVerified: emailVerified > 0 };
     } catch (error) {
       console.error("Confirm signup error:", error);
-      throw handleCognitoError(error);
+      throw error;
     }
   }
 
@@ -229,7 +283,7 @@ class CognitoModel {
       return { successMessage: "Verification code has been resent" };
     } catch (error) {
       console.error("Resend confirmation code error:", error);
-      throw handleCognitoError(error);
+      throw error;
     }
   }
 
@@ -239,15 +293,15 @@ class CognitoModel {
    * @param {Object} res - Express response object for setting cookies
    * @returns {Promise<Object>} Authentication result
    */
-  async signIn({ username, password, loginMethod, faceImage }, res) {
+  async signIn({ username, password, loginMethod, faceIDImageBase64 }, res) {
     console.log(`Attempting to sign in with method: ${loginMethod}`);
 
     let response;
 
-    if (loginMethod === "EMAIL") {
-      response = this._emailSignIn(username, password, res);
-    } else if (loginMethod === "FACE_ID") {
-      response = this._faceIdSignIn(username, faceImage, res);
+    if (loginMethod === SIGN_UP_METHODS.EMAIL) {
+      response = this._emailSignIn({ username, password, res });
+    } else if (loginMethod === SIGN_UP_METHODS.FACE_ID) {
+      response = this._faceIdSignIn({ username, faceIDImageBase64, res });
     }
 
     return response;
@@ -257,25 +311,25 @@ class CognitoModel {
    * Handle email-based authentication
    * @private
    */
-  async _emailSignIn(username, password, res) {
-    const params = {
-      ...this._getBaseParams(),
-      AuthFlow: "USER_PASSWORD_AUTH",
-      AuthParameters: {
-        USERNAME: username,
-        PASSWORD: password,
-      },
-    };
-
-    const command = new InitiateAuthCommand(params);
-
+  async _emailSignIn({ username, password, res }) {
     try {
-      const userDetails = await this.userModel.getUserByUsername(username);
+      if (!username || !password) {
+        throwApiError(
+          API_ERROR_STATUS_CODES.BAD_REQUEST,
+          API_ERROR_MESSAGES.INVALID_PARAMETERS,
+          API_ERROR_CODES.INVALID_PARAMETERS
+        );
+      }
 
+      const userDetails = await this.userModel.getUserByUsername(username);
       console.log(" CognitoModel_emailSignIn userDetails", userDetails);
 
       if (!userDetails) {
-        throw throwApiError(404, "User not found", "USER_NOT_FOUND");
+        throw throwApiError(
+          API_ERROR_STATUS_CODES.NOT_FOUND,
+          API_ERROR_MESSAGES.USER_NOT_FOUND,
+          API_ERROR_CODES.USER_NOT_FOUND
+        );
       }
 
       if (!userDetails.isEmailVerified) {
@@ -283,21 +337,38 @@ class CognitoModel {
           username,
         });
       }
-      const response = await this.client.send(command);
-      console.log("Email sign-in successful");
 
-      // Update last login method
+      const params = {
+        ...this._getBaseParams(),
+        AuthFlow: "USER_PASSWORD_AUTH",
+        AuthParameters: {
+          USERNAME: username,
+          PASSWORD: password,
+        },
+      };
+
+      const command = new InitiateAuthCommand(params);
+      const InitiateAuthCommandResponse = await this.client.send(command);
+      console.log(
+        " CognitoModel_emailSignIn InitiateAuthCommandResponse",
+        InitiateAuthCommandResponse
+      );
+
       await User.update(
-        { lastLoginMethod: "EMAIL" },
+        { lastLoginMethod: SIGN_UP_METHODS.EMAIL },
         { where: { email: username } }
       );
 
-      await this.generateTokenAndSetCookies(res, userDetails.userId, "EMAIL");
+      await this.generateTokenAndSetCookies(
+        res,
+        userDetails.userId,
+        SIGN_UP_METHODS.EMAIL
+      );
 
       return { ...userDetails };
     } catch (error) {
       console.error("Email sign in error:", error);
-      throw handleCognitoError(error);
+      throw error;
     }
   }
 
@@ -305,25 +376,38 @@ class CognitoModel {
    * Handle face recognition-based authentication
    * @private
    */
-  async _faceIdSignIn(username, faceImage, res) {
+  async _faceIdSignIn({ username, faceIDImageBase64, res }) {
     try {
+      if (!username || !faceIDImageBase64) {
+        throwApiError(
+          API_ERROR_STATUS_CODES.BAD_REQUEST,
+          API_ERROR_MESSAGES.INVALID_PARAMETERS,
+          API_ERROR_CODES.INVALID_PARAMETERS
+        );
+      }
+
       console.log("Attempting face recognition login");
 
       // Verify if the user exists in the database
       const user = await User.findOne({
         where: { email: username },
         raw: true,
-      });
+      }).then((user) => user.toJSON());
+      console.log(" CognitoModel_faceIdSignIn user", user);
 
       if (!user) {
-        return throwApiError(404, "User not found", "USER_NOT_FOUND");
+        throwApiError(
+          API_ERROR_STATUS_CODES.NOT_FOUND,
+          API_ERROR_MESSAGES.USER_NOT_FOUND,
+          API_ERROR_CODES.USER_NOT_FOUND
+        );
       }
 
-      if (user.registrationMethod !== "FACE_ID") {
-        return throwApiError(
-          400,
-          "User is not registered with face recognition",
-          "FACE_ID_NOT_SUPPORTED"
+      if (user.signUpMethod !== SIGN_UP_METHODS.FACE_ID) {
+        throwApiError(
+          API_ERROR_STATUS_CODES.BAD_REQUEST,
+          API_ERROR_MESSAGES.FACE_ID_NOT_SUPPORTED,
+          API_ERROR_CODES.FACE_ID_NOT_SUPPORTED
         );
       }
 
@@ -333,40 +417,49 @@ class CognitoModel {
         });
       }
 
-      // Verify face using Rekognition
-      const faceVerificationResult = await RekognitionModel.authenticateFace({
-        s3ImageKey: user.faceImageKey,
-        faceImage,
-      });
+      // compare faces using Rekognition
+      const faceVerificationResult =
+        await RekognitionModel.authenticateFaceAuth(
+          user.faceIDS3Key,
+          faceIDImageBase64
+        );
 
       if (!faceVerificationResult.isAuthenticated) {
-        throwApiError(401, "Face verification failed", "FACE_MISMATCH");
+        throwApiError(
+          API_ERROR_STATUS_CODES.UNAUTHORIZED,
+          API_ERROR_MESSAGES.FACE_MISMATCH,
+          API_ERROR_CODES.FACE_MISMATCH
+        );
       }
 
       console.log("Face verification successful");
 
       // Update last login method
       await User.update(
-        { lastLoginMethod: "FACE_ID" },
+        { lastLoginMethod: SIGN_UP_METHODS.FACE_ID },
         { where: { email: username } }
       );
 
-      // get signed URL for the face image extract key from user.faceImageUrl
-      const faceImageKey = user?.faceImageUrl.split("/").pop();
-      const signedUrl = await S3Model.getPresignedUrl(faceImageKey);
+      // get signed URL for the face image extract key from user.faceIDS3Url
+      const faceIDS3Key = user?.faceIDS3Url.split("/").pop();
+      const signedUrl = await S3Model.getPresignedUrl(faceIDS3Key);
       console.log("Signed URL for face image:", signedUrl);
 
-      await this.generateTokenAndSetCookies(res, user.userId, "FACE_ID");
+      await this.generateTokenAndSetCookies(
+        res,
+        user.userId,
+        SIGN_UP_METHODS.FACE_ID
+      );
+
+      const { password: _, ...userWithoutPassword } = user;
 
       return {
-        ...user,
-        faceVerification: faceVerificationResult,
+        ...userWithoutPassword,
         signedUrl,
       };
     } catch (error) {
       console.error("Face ID sign in error:", error);
-      console.error("Error during face ID sign in:", error);
-      throw handleCognitoError(error);
+      throw error;
     }
   }
 
@@ -383,7 +476,11 @@ class CognitoModel {
       // Check if refresh token exists in cookies
       const refreshToken = req.cookies?.refresh_token;
       if (!refreshToken) {
-        return throwApiError(401, "No refresh token provided", "INVALID_TOKEN");
+        throwApiError(
+          API_ERROR_STATUS_CODES.UNAUTHORIZED,
+          API_ERROR_MESSAGES.INVALID_TOKEN_PROVIDED,
+          API_ERROR_CODES.INVALID_TOKEN
+        );
       }
 
       // Verify the refresh token
@@ -392,12 +489,20 @@ class CognitoModel {
         "REFRESH"
       );
       if (!tokenData || tokenData.type !== "REFRESH") {
-        return throwApiError(401, "Invalid refresh token", "INVALID_TOKEN");
+        throwApiError(
+          API_ERROR_STATUS_CODES.UNAUTHORIZED,
+          API_ERROR_MESSAGES.INVALID_TOKEN,
+          API_ERROR_CODES.INVALID_TOKEN
+        );
       }
 
       // Check if token is expired
       if (tokenData.expiresAt < Math.floor(Date.now() / 1000)) {
-        return throwApiError(401, "Refresh token expired", "TOKEN_EXPIRED");
+        throwApiError(
+          API_ERROR_STATUS_CODES.UNAUTHORIZED,
+          API_ERROR_MESSAGES.TOKEN_EXPIRED,
+          API_ERROR_CODES.TOKEN_EXPIRED
+        );
       }
 
       // Get user from database
@@ -406,7 +511,11 @@ class CognitoModel {
       );
 
       if (!user) {
-        return throwApiError(404, "User not found", "USER_NOT_FOUND");
+        throwApiError(
+          API_ERROR_STATUS_CODES.NOT_FOUND,
+          API_ERROR_MESSAGES.USER_NOT_FOUND,
+          API_ERROR_CODES.USER_NOT_FOUND
+        );
       }
 
       // Generate new tokens
@@ -416,10 +525,12 @@ class CognitoModel {
         tokenData.authMethod
       );
 
+      const { password: _, ...userWithoutPassword } = user;
+
       console.log("Session refreshed successfully");
       return {
         successMessage: "Session refreshed successfully",
-        user,
+        ...userWithoutPassword,
       };
     } catch (error) {
       console.error("Refresh session error:", error);
@@ -469,7 +580,7 @@ class CognitoModel {
         return { successMessage: "Already logged out" };
       }
 
-      throw handleCognitoError(error);
+      throw error;
     }
   }
 
@@ -504,7 +615,7 @@ class CognitoModel {
       };
     } catch (error) {
       console.error("Forgot password error:", error);
-      throw handleCognitoError(error);
+      throw error;
     }
   }
 
@@ -538,7 +649,11 @@ class CognitoModel {
       // update password in the database
       const user = await User.findOne({ where: { email: username } });
       if (!user) {
-        return throwApiError(404, "User not found", "USER_NOT_FOUND");
+        throwApiError(
+          API_ERROR_STATUS_CODES.NOT_FOUND,
+          API_ERROR_MESSAGES.USER_NOT_FOUND,
+          API_ERROR_CODES.USER_NOT_FOUND
+        );
       }
 
       // Hash the new password before storing it
@@ -555,7 +670,7 @@ class CognitoModel {
       };
     } catch (error) {
       console.error("Confirm forgot password error:", error);
-      throw handleCognitoError(error);
+      throw error;
     }
   }
 

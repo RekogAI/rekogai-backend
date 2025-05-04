@@ -26,7 +26,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"user@example.com\",\n  \"password\": \"YourSecurePassword123!\",\n  \"attributes\": [\n    {\n      \"Name\": \"email\",\n      \"Value\": \"user@example.com\"\n    },\n    {\n      \"Name\": \"name\",\n      \"Value\": \"John Doe\"\n    }\n  ],\n  \"registrationMethod\": \"EMAIL\"\n}"
+              "raw": "{\n  \"username\": \"user@example.com\",\n  \"password\": \"YourSecurePassword123!\",\n  \"attributes\": [\n    {\n      \"Name\": \"email\",\n      \"Value\": \"user@example.com\"\n    },\n    {\n      \"Name\": \"name\",\n      \"Value\": \"John Doe\"\n    }\n  ],\n  \"signUpMethod\": \"EMAIL\"\n}"
             },
             "description": "Register a new user using email"
           }
@@ -48,7 +48,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"user@example.com\",\n  \"faceImage\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgABA...\",\n  \"registrationMethod\": \"FACE_ID\"\n}"
+              "raw": "{\n  \"username\": \"user@example.com\",\n  \"faceImage\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgABA...\",\n  \"signUpMethod\": \"FACE_ID\"\n}"
             },
             "description": "Register a new user using face recognition"
           }

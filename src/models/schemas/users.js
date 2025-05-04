@@ -23,7 +23,7 @@ const User = sequelize.define(
       type: DataTypes.JSONB,
       allowNull: true,
     },
-    registrationMethod: {
+    signUpMethod: {
       type: DataTypes.ENUM("EMAIL", "FACE_ID"),
       defaultValue: "EMAIL",
       allowNull: false,
@@ -32,12 +32,12 @@ const User = sequelize.define(
       type: DataTypes.ENUM("EMAIL", "FACE_ID"),
       allowNull: true,
     },
-    faceImageUrl: {
+    faceIDS3Url: {
       type: DataTypes.STRING(255),
       allowNull: true,
       comment: "s3 object URL for the face image",
     },
-    faceImageKey: {
+    faceIDS3Key: {
       type: DataTypes.STRING(255),
       allowNull: true,
       comment: "s3 Key for the face image",

@@ -15,7 +15,12 @@ import { API_TYPES, IMAGE_STATUS } from "../utility/constants.js";
 import sharp from "sharp";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import Thumbnail from "./schemas/thumbnails.js";
-import { handleRekognitionError } from "../errors/rekognition-errors.js";
+import { throwApiError } from "../utility/ErrorHandler.js";
+import {
+  API_ERROR_CODES,
+  API_ERROR_MESSAGES,
+  API_ERROR_STATUS_CODES,
+} from "../utility/constants.error.js";
 
 const { Face, Album, Image, APIResponse } = models;
 
@@ -623,9 +628,13 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
   return { message: "Image processing job completed" };
 };
 
-const registerFace = async ({ faceImage }) => {
-  if (!faceImage) {
-    throw new Error("Face image is required");
+const registerFaceAuth = async (faceIDImageBase64) => {
+  if (!faceIDImageBase64) {
+    throwApiError(
+      API_ERROR_STATUS_CODES.BAD_REQUEST,
+      API_ERROR_MESSAGES.INVALID_PARAMETERS,
+      API_ERROR_CODES.INVALID_PARAMETERS
+    );
   }
 
   const collectionId = config[ENVIRONMENT].REKOGNITION_AUTH_COLLECTION_ID;
@@ -634,13 +643,16 @@ const registerFace = async ({ faceImage }) => {
     // Step 1: Try to find if the face already exists in the collection
     console.log(`Searching for existing face in collection: ${collectionId}`);
 
+    const faceIDImageBuffer = Buffer.from(faceIDImageBase64, "base64");
+
     const searchCommand = new SearchFacesByImageCommand({
       CollectionId: collectionId,
-      Image: { Bytes: Buffer.from(faceImage, "base64") },
+      Image: { Bytes: faceIDImageBuffer },
       MaxFaces: 1,
       QualityFilter: "MEDIUM",
       FaceMatchThreshold: 80,
     });
+    console.log(" registerFace searchCommand", searchCommand);
 
     const searchResponse = await rekognitionClient.send(searchCommand);
 
@@ -664,17 +676,31 @@ const registerFace = async ({ faceImage }) => {
 
     const indexCommand = new IndexFacesCommand({
       CollectionId: collectionId,
-      Image: { Bytes: Buffer.from(faceImage, "base64") },
+      Image: { Bytes: faceIDImageBuffer },
       MaxFaces: 1,
       QualityFilter: "MEDIUM",
       DetectionAttributes: ["DEFAULT"],
     });
 
     const indexResponse = await rekognitionClient.send(indexCommand);
+    console.log(" registerFace indexResponse", indexResponse);
 
     // Check if indexing was successful
     if (!indexResponse.FaceRecords || indexResponse.FaceRecords.length === 0) {
-      throw new Error("No faces were detected in the provided image");
+      throwApiError(
+        API_ERROR_STATUS_CODES.BAD_REQUEST,
+        API_ERROR_MESSAGES.NO_FACE_FOUND,
+        API_ERROR_CODES.NO_FACE_FOUND
+      );
+    }
+
+    // check for multiple faces
+    if (indexResponse.FaceRecords.length > 1) {
+      throwApiError(
+        API_ERROR_STATUS_CODES.BAD_REQUEST,
+        API_ERROR_MESSAGES.MULTIPLE_FACES_FOUND,
+        API_ERROR_CODES.MULTIPLE_FACES_FOUND
+      );
     }
 
     const indexedFace = indexResponse.FaceRecords[0];
@@ -688,7 +714,7 @@ const registerFace = async ({ faceImage }) => {
       faceId: indexedFace.Face.FaceId,
     };
   } catch (error) {
-    throw handleRekognitionError(error);
+    throw error;
   }
 };
 
@@ -740,7 +766,7 @@ const streamToBuffer = async (stream) => {
   });
 };
 
-const authenticateFace = async ({ s3ImageKey, faceImage: faceImageBase64 }) => {
+const authenticateFaceAuth = async (s3ImageKey, faceImageBase64) => {
   console.log(` authenticateFace `, {
     s3ImageKey,
     faceImageBase64: faceImageBase64
@@ -748,16 +774,15 @@ const authenticateFace = async ({ s3ImageKey, faceImage: faceImageBase64 }) => {
       : null,
   });
 
-  if (!s3ImageKey) {
-    throw new Error("S3 image key is required");
-  }
-
-  if (!faceImageBase64) {
-    throw new Error("Face image base64 data is required");
+  if (!s3ImageKey || !faceImageBase64) {
+    throwApiError(
+      API_ERROR_STATUS_CODES.BAD_REQUEST,
+      API_ERROR_MESSAGES.INVALID_PARAMETERS,
+      API_ERROR_CODES.INVALID_PARAMETERS
+    );
   }
 
   try {
-    // Get the registered face image from S3
     const getObjectCommand = new GetObjectCommand({
       Bucket: config[ENVIRONMENT].REKOGNITION_AUTH_BUCKET_NAME,
       Key: s3ImageKey,
@@ -765,36 +790,25 @@ const authenticateFace = async ({ s3ImageKey, faceImage: faceImageBase64 }) => {
     const imageStream = await s3Client.send(getObjectCommand);
     const imageBuffer = await streamToBuffer(imageStream.Body);
 
-    // Process the incoming base64 image
     let faceImageBuffer;
 
-    // Remove data URL prefix if present (e.g., "data:image/png;base64,")
     let cleanBase64 = faceImageBase64;
     if (faceImageBase64.includes("base64,")) {
       cleanBase64 = faceImageBase64.split("base64,")[1];
     }
 
-    // Convert base64 to buffer
-    try {
-      faceImageBuffer = Buffer.from(cleanBase64, "base64");
-
-      // Simple validation to check if the buffer is a valid image
-      if (faceImageBuffer.length < 100) {
-        throw new Error(
-          "Decoded image buffer is too small, likely not a valid image"
-        );
-      }
-    } catch (error) {
-      console.error("Error converting base64 to buffer:", error);
-      throw new Error(
-        "Invalid image format: Unable to process the provided image"
+    faceImageBuffer = Buffer.from(cleanBase64, "base64");
+    if (faceImageBuffer.length < 100) {
+      throwApiError(
+        API_ERROR_STATUS_CODES.BAD_REQUEST,
+        API_ERROR_MESSAGES.INVALID_IMAGE,
+        API_ERROR_CODES.INVALID_IMAGE
       );
     }
 
-    // Compare the two images using compareFacesCommand
     const compareFacesCommand = new CompareFacesCommand({
       SourceImage: {
-        Bytes: faceImageBuffer, // Use the buffer, not the base64 string
+        Bytes: faceImageBuffer,
       },
       TargetImage: {
         Bytes: imageBuffer,
@@ -835,7 +849,7 @@ export default {
   getFacesByCollectionId,
   groupFacesIntoAlbums,
   startImageProcessingJob,
-  registerFace,
+  registerFaceAuth,
   verifyFace,
-  authenticateFace,
+  authenticateFaceAuth,
 };
