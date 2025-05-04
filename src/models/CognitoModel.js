@@ -275,7 +275,7 @@ class CognitoModel {
       console.log(" CognitoModel_emailSignIn userDetails", userDetails);
 
       if (!userDetails) {
-        return throwApiError(404, "User not found", "USER_NOT_FOUND");
+        throw throwApiError(404, "User not found", "USER_NOT_FOUND");
       }
 
       if (!userDetails.isEmailVerified) {
@@ -297,7 +297,7 @@ class CognitoModel {
       return { ...userDetails };
     } catch (error) {
       console.error("Email sign in error:", error);
-      throw error;
+      throw handleCognitoError(error);
     }
   }
 
@@ -328,7 +328,9 @@ class CognitoModel {
       }
 
       if (!user.isEmailVerified) {
-        throwApiError(401, "Email not verified", "EMAIL_NOT_VERIFIED");
+        return this.resendConfirmationCode({
+          username,
+        });
       }
 
       // Verify face using Rekognition
@@ -338,7 +340,7 @@ class CognitoModel {
       });
 
       if (!faceVerificationResult.isAuthenticated) {
-        return throwApiError(401, "Face verification failed", "FACE_MISMATCH");
+        throwApiError(401, "Face verification failed", "FACE_MISMATCH");
       }
 
       console.log("Face verification successful");
