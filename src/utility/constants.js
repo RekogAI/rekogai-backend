@@ -39,3 +39,23 @@ export const SIGN_UP_METHODS = {
   FACE_ID: "FACE_ID",
   EMAIL: "EMAIL",
 };
+
+export const TOKEN_VALIDITY_IN_MINUTES = {
+  "30_MINUTES": 30,
+  "24_HOURS": 60 * 24,
+  "30_DAYS": 60 * 24 * 30,
+  "1_YEAR": 60 * 24 * 365,
+};
+
+export const TOKEN_VALIDITY_IN_MILLISECONDS = {
+  "30_MINUTES": 3600 * 30,
+  "24_HOURS": 3600 * 60 * 24,
+  "30_DAYS": 3600 * 60 * 24 * 30,
+  "1_YEAR": 3600 * 60 * 24 * 365,
+};
+
+export const TOKEN_TYPE = {
+  REFRESH: "REFRESH",
+  ACCESS: "ACCESS",
+  ID: "ID",
+};

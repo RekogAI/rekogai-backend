@@ -12,6 +12,8 @@ export const API_ERROR_CODES = {
   NO_FACE_FOUND: "NO_FACE_FOUND",
   MULTIPLE_FACES_FOUND: "MULTIPLE_FACES_FOUND",
   INVALID_IMAGE: "INVALID_IMAGE",
+  SESSION_EXPIRED: "SESSION_EXPIRED",
+  ACCESS_TOKEN_NOT_GENERATED: "ACCESS_TOKEN_NOT_GENERATED",
 };
 
 export const API_ERROR_MESSAGES = {
@@ -30,6 +32,8 @@ export const API_ERROR_MESSAGES = {
   INVALID_PARAMETERS: "Invalid parameters provided",
   NO_FACE_FOUND: "No face found in the image",
   MULTIPLE_FACES_FOUND: "Multiple faces found in the image",
+  SESSION_EXPIRED: "Session expired, please log in again",
+  ACCESS_TOKEN_NOT_GENERATED: "Token cannot be refreshed, please log in again",
 };
 
 export const API_ERROR_STATUS_CODES = {

@@ -23,23 +23,34 @@ const Token = sequelize.define(
     token: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      unique: true,
     },
     tokenType: {
       type: DataTypes.ENUM("ACCESS", "REFRESH", "ID"),
       allowNull: false,
     },
-    authMethod: {
-      type: DataTypes.ENUM("EMAIL", "FACE_ID"),
-      allowNull: false,
-    },
-    expiresAt: {
+    generatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    expiredAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
     },
     isRevoked: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
+    },
+    status: {
+      type: DataTypes.ENUM("VALID", "INVALID"),
+      allowNull: false,
+      defaultValue: "VALID",
+    },
+    validityInMinutes: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      comment:
+        "ACCESS_TOKEN validity is 30 minutes by default, REFRESH_TOKEN 24 hours, ID_TOKEN till user logs out or REFRESH_TOKEN expires",
     },
   },
   {

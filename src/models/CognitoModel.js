@@ -25,7 +25,11 @@ import {
 const { User } = models;
 import TokenModel from "./TokenModel.js";
 import bcrypt from "bcrypt";
-import { SIGN_UP_METHODS } from "../utility/constants.js";
+import {
+  SIGN_UP_METHODS,
+  TOKEN_VALIDITY_IN_MINUTES,
+  TOKEN_TYPE,
+} from "../utility/constants.js";
 
 /**
  * Class for handling authentication operations using AWS Cognito
@@ -133,12 +137,6 @@ class CognitoModel {
       // Return user without hashed password
       const { password: _, ...userWithoutPassword } = createdUser;
 
-      await this.generateTokenAndSetCookies(
-        res,
-        createdUser.userId,
-        SIGN_UP_METHODS.EMAIL
-      );
-
       return userWithoutPassword;
     } catch (error) {
       console.error("Signup error:", error);
@@ -187,12 +185,6 @@ class CognitoModel {
         lastLoginMethod: SIGN_UP_METHODS.FACE_ID,
         faceIDS3Key: s3UploadResult.key,
       }).then((user) => user.toJSON());
-
-      await this.generateTokenAndSetCookies(
-        res,
-        createdUser.userId,
-        SIGN_UP_METHODS.FACE_ID
-      );
 
       // Return user without hashed password
       const { password: _, ...userWithoutPassword } = createdUser;
@@ -463,6 +455,40 @@ class CognitoModel {
     }
   }
 
+  // Implement the isTokenExpired method to check token expiration
+  isTokenExpired(token, generatedAt, expiryInMinutes) {
+    console.log(
+      " CognitoModelisTokenExpired token, generatedAt, expiryInMinutes",
+      token,
+      generatedAt,
+      expiryInMinutes
+    );
+    if (!token || !generatedAt || !expiryInMinutes) {
+      return true;
+    }
+
+    const tokenGeneratedTime = new Date(generatedAt).getTime();
+    const expiryTimeMs = expiryInMinutes * 60 * 1000;
+    const currentTime = Date.now();
+
+    return currentTime > tokenGeneratedTime + expiryTimeMs;
+  }
+
+  // Check if token is about to expire (within 5 minutes)
+  isTokenNearExpiry(token, generatedAt, expiryInMinutes) {
+    if (!token || !generatedAt || !expiryInMinutes) {
+      return true;
+    }
+
+    const tokenGeneratedTime = new Date(generatedAt).getTime();
+    const expiryTimeMs = expiryInMinutes * 60 * 1000;
+    const currentTime = Date.now();
+    const timeToExpiryMs = tokenGeneratedTime + expiryTimeMs - currentTime;
+
+    // Return true if token will expire within 5 minutes
+    return timeToExpiryMs < 5 * 60 * 1000;
+  }
+
   /**
    * Refreshes an authentication session
    * @param {Object} req - Express request object containing refresh token
@@ -473,22 +499,16 @@ class CognitoModel {
     try {
       console.log("Processing refresh session request");
 
-      // Check if refresh token exists in cookies
+      const idToken = req.cookies?.id_token;
       const refreshToken = req.cookies?.refresh_token;
-      if (!refreshToken) {
-        throwApiError(
-          API_ERROR_STATUS_CODES.UNAUTHORIZED,
-          API_ERROR_MESSAGES.INVALID_TOKEN_PROVIDED,
-          API_ERROR_CODES.INVALID_TOKEN
-        );
-      }
+      const accessToken = req.cookies?.access_token;
 
-      // Verify the refresh token
-      const tokenData = await this.tokenModel.verifyToken(
-        refreshToken,
-        "REFRESH"
-      );
-      if (!tokenData || tokenData.type !== "REFRESH") {
+      // const idToken = req.body?.id_token;
+      // const refreshToken = req.body?.refresh_token;
+      // const accessToken = req.body?.access_token;
+
+      // Check if refresh token exists in cookies
+      if (!refreshToken || !idToken || !accessToken) {
         throwApiError(
           API_ERROR_STATUS_CODES.UNAUTHORIZED,
           API_ERROR_MESSAGES.INVALID_TOKEN,
@@ -496,41 +516,134 @@ class CognitoModel {
         );
       }
 
-      // Check if token is expired
-      if (tokenData.expiresAt < Math.floor(Date.now() / 1000)) {
+      // fetch tokens from database
+      const userTokens = await this.tokenModel.fetchUserTokens({
+        idToken,
+        refreshToken,
+        accessToken,
+      });
+
+      const { tokens, tokensCount } = userTokens || {};
+
+      if (tokensCount < 3) {
         throwApiError(
           API_ERROR_STATUS_CODES.UNAUTHORIZED,
-          API_ERROR_MESSAGES.TOKEN_EXPIRED,
-          API_ERROR_CODES.TOKEN_EXPIRED
+          API_ERROR_MESSAGES.INVALID_TOKEN,
+          API_ERROR_CODES.INVALID_TOKEN
         );
       }
 
-      // Get user from database
-      const user = await User.findByPk(tokenData.userId).then((user) =>
-        user.toJSON()
+      const _idToken = tokens.find(
+        (token) => token.tokenType === TOKEN_TYPE.ID
+      );
+      const _refreshToken = tokens.find(
+        (token) => token.tokenType === TOKEN_TYPE.REFRESH
+      );
+      const _accessToken = tokens.find(
+        (token) => token.tokenType === TOKEN_TYPE.ACCESS
       );
 
-      if (!user) {
+      if (!_idToken || !_refreshToken || !_accessToken) {
         throwApiError(
-          API_ERROR_STATUS_CODES.NOT_FOUND,
-          API_ERROR_MESSAGES.USER_NOT_FOUND,
-          API_ERROR_CODES.USER_NOT_FOUND
+          API_ERROR_STATUS_CODES.UNAUTHORIZED,
+          API_ERROR_MESSAGES.INVALID_TOKEN,
+          API_ERROR_CODES.INVALID_TOKEN
         );
       }
 
-      // Generate new tokens
-      await this.generateTokenAndSetCookies(
-        res,
-        user.userId,
-        tokenData.authMethod
+      // Check if ID token is expired
+      if (
+        this.isTokenExpired(
+          _idToken.token,
+          _idToken.generatedAt,
+          _idToken.validityInMinutes
+        )
+      ) {
+        throwApiError(
+          API_ERROR_STATUS_CODES.UNAUTHORIZED,
+          API_ERROR_MESSAGES.SESSION_EXPIRED,
+          API_ERROR_CODES.SESSION_EXPIRED
+        );
+      }
+
+      // Check if refresh token is expired
+      if (
+        this.isTokenExpired(
+          _refreshToken.token,
+          _refreshToken.generatedAt,
+          _refreshToken.validityInMinutes
+        )
+      ) {
+        throwApiError(
+          API_ERROR_STATUS_CODES.UNAUTHORIZED,
+          API_ERROR_MESSAGES.SESSION_EXPIRED,
+          API_ERROR_CODES.SESSION_EXPIRED
+        );
+      }
+
+      // Check if access token needs rotation (expired or close to expiry)
+      const accessTokenExpired = this.isTokenExpired(
+        _accessToken.token,
+        _accessToken.generatedAt,
+        _accessToken.validityInMinutes
       );
 
-      const { password: _, ...userWithoutPassword } = user;
+      const accessTokenNearExpiry = this.isTokenNearExpiry(
+        _accessToken.token,
+        _accessToken.generatedAt,
+        _accessToken.validityInMinutes
+      );
+
+      if (accessTokenExpired || accessTokenNearExpiry) {
+        console.log("Access token needs rotation, generating new tokens");
+
+        const userId = _idToken?.user?.userId;
+
+        // Check if user has "remember me" enabled by looking at refresh token expiry
+        const rememberMe =
+          _refreshToken.expiryInMinutes > TOKEN_VALIDITY_IN_MINUTES["24_HOURS"];
+
+        const newAccessToken = await this.tokenModel.generateToken(
+          userId,
+          TOKEN_TYPE.ACCESS,
+          TOKEN_VALIDITY_IN_MINUTES["30_MINUTES"],
+          true
+        );
+
+        console.log(
+          " CognitoModelrefreshSession newAccessToken",
+          newAccessToken
+        );
+
+        // Update the access token in the database
+        const isTokenUpdated = await this.tokenModel.updateToken(
+          _accessToken.tokenId,
+          newAccessToken.token
+        );
+
+        if (!isTokenUpdated) {
+          throwApiError(
+            API_ERROR_STATUS_CODES.UNAUTHORIZED,
+            API_ERROR_MESSAGES.ACCESS_TOKEN_NOT_GENERATED,
+            API_ERROR_CODES.ACCESS_TOKEN_NOT_GENERATED
+          );
+        }
+
+        console.log(
+          "CognitoModelrefreshSession isTokenUpdated",
+          isTokenUpdated
+        );
+
+        setCookies(res, { access_token: newAccessToken }, rememberMe);
+
+        console.log("Access token rotated successfully");
+      } else {
+        console.log("Access token still valid, no need for rotation");
+      }
 
       console.log("Session refreshed successfully");
       return {
         successMessage: "Session refreshed successfully",
-        ...userWithoutPassword,
       };
     } catch (error) {
       console.error("Refresh session error:", error);
@@ -679,39 +792,34 @@ class CognitoModel {
    * @param {Object} res - Express response object for setting cookies
    * @param {Object} user - User details
    */
-  async generateTokenAndSetCookies(res, userId, authMethod) {
-    const expiresIn = 3600; // 1 hour
-
+  async generateTokenAndSetCookies(res, userId, rememberMe = false) {
     const accessToken = await this.tokenModel.generateToken(
       userId,
-      "ACCESS",
-      authMethod,
-      expiresIn
+      TOKEN_TYPE.ACCESS,
+      TOKEN_VALIDITY_IN_MINUTES["30_MINUTES"]
     );
 
     const refreshToken = await this.tokenModel.generateToken(
       userId,
-      "REFRESH",
-      authMethod,
-      24 * 60 * 60 // 1 day
+      TOKEN_TYPE.REFRESH,
+      rememberMe
+        ? TOKEN_VALIDITY_IN_MINUTES["30_DAYS"]
+        : TOKEN_VALIDITY_IN_MINUTES["24_HOURS"]
     );
 
     const idToken = await this.tokenModel.generateToken(
       userId,
-      "ID",
-      authMethod,
-      expiresIn
+      TOKEN_TYPE.ID,
+      TOKEN_VALIDITY_IN_MINUTES["1_YEAR"]
     );
 
-    setCookies(
-      res,
-      {
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        id_token: idToken,
-      },
-      expiresIn
-    );
+    const cookies = {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      id_token: idToken,
+    };
+
+    setCookies(res, cookies, rememberMe);
 
     console.log("Tokens generated and set in cookies");
   }

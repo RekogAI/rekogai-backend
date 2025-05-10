@@ -58,3 +58,4 @@ export const logoutRoute = asyncHandler(async (req, res) => {
   const apiResponse = await cognitoModelInstance.logout(req, res);
   return handleApiResponse(res, apiResponse);
 });
+

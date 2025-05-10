@@ -4,8 +4,7 @@ import { CognitoJwtVerifier } from "aws-jwt-verify";
 import configObj from "../config.js";
 import TokenModel from "../models/TokenModel.js";
 import { ApiError, throwApiError } from "../utility/ErrorHandler.js";
-import { handleCognitoError } from "../errors/cognito-errors.js";
-import { handleRekognitionError } from "../errors/rekognition-errors.js";
+import { TOKEN_TYPE } from "../utility/constants.js";
 
 const { config, ENVIRONMENT } = configObj;
 const tokenModel = new TokenModel();
@@ -131,7 +130,7 @@ export const sessionMiddleware = async (req, res, next) => {
 // Helper function to verify face auth tokens against the database
 async function verifyFaceAuthToken(token) {
   try {
-    const tokenRecord = await tokenModel.verifyToken(token, "ACCESS");
+    const tokenRecord = await tokenModel.verifyToken(token, TOKEN_TYPE.ACCESS);
     return tokenRecord;
   } catch (error) {
     console.error("Face auth token verification error:", error);
@@ -151,16 +150,17 @@ export const errorHandler = (err, req, res, next) => {
     return res.status(err.statusCode).json(err.toResponse());
   }
 
-  if (err.name && err.name === "CognitoError") {
-    const cognitoError = handleCognitoError(err);
-    return res.status(cognitoError.statusCode).json(cognitoError.toResponse());
-  }
-
-  if (err.name && err.name === "RekognitionError") {
-    const rekognitionError = handleRekognitionError(err);
-    return res
-      .status(rekognitionError.statusCode)
-      .json(rekognitionError.toResponse());
+  // if any exception is thrown from the AWS SDK, throw an ApiError with specific error details
+  if (err.name && err.name.includes("Exception")) {
+    const errorType = err.__type || err.name;
+    const statusCode = err.$fault === "server" ? 500 : 400;
+    const apiError = new ApiError(
+      statusCode,
+      err.message,
+      errorType,
+      "AWS_SERVICE_ERROR"
+    );
+    return res.status(apiError.statusCode).json(apiError.toResponse());
   }
 
   // Handle all other errors
@@ -169,10 +169,7 @@ export const errorHandler = (err, req, res, next) => {
     error: {
       status: 500,
       code: "SERVER_ERROR",
-      message:
-        process.env.NODE_ENV === "production"
-          ? "An unexpected error occurred"
-          : err.message,
+      message: err.message || "An unexpected error occurred",
     },
   });
 };
