@@ -634,7 +634,7 @@ class CognitoModel {
           isTokenUpdated
         );
 
-        setCookies(res, { access_token: newAccessToken }, rememberMe);
+        setCookies(res, { access_token: newAccessToken.token }, rememberMe);
 
         console.log("Access token rotated successfully");
       } else {
@@ -814,9 +814,9 @@ class CognitoModel {
     );
 
     const cookies = {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      id_token: idToken,
+      access_token: accessToken?.token,
+      refresh_token: refreshToken?.token,
+      id_token: idToken?.token,
     };
 
     setCookies(res, cookies, rememberMe);

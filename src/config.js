@@ -6,6 +6,7 @@ const AWS_REGION = process.env.AWS_REGION;
 
 const corsOptions = {
   origin: "http://localhost:3000",
+  credentials: true,
 };
 
 const config = {

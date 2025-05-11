@@ -23,7 +23,7 @@ class TokenModel {
       const token = crypto.randomBytes(64).toString("hex");
 
       if (onlyUpdate) {
-        return { token };
+        return { token, tokenId: null };
       }
       const tokenRecord = await this.Token.create({
         userId,

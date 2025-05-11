@@ -16,6 +16,7 @@ export const setCookies = (res, cookies, rememberMe = false) => {
     const cookieDefaults = {
       httpOnly: true,
       secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       path: "/",
     };
 
@@ -27,17 +28,17 @@ export const setCookies = (res, cookies, rememberMe = false) => {
 
       let cookieOptions = { ...cookieDefaults };
 
-      if (key === "access_token") {
-        cookieOptions.maxAge = TOKEN_VALIDITY_IN_MILLISECONDS["30_MINUTES"];
-      } else if (key === "refresh_token") {
-        cookieOptions.maxAge = rememberMe
-          ? TOKEN_VALIDITY_IN_MILLISECONDS["30_DAYS"]
-          : TOKEN_VALIDITY_IN_MILLISECONDS["24_HOURS"];
-      }
-
       Logger.debug(
         `Setting cookie: ${key} (expiry: ${cookieOptions.maxAge ? cookieOptions.maxAge / 1000 + "s" : "session"})`
       );
+
+      console.log(
+        " Object.entries key, value, cookieOptions",
+        key,
+        value,
+        cookieOptions
+      );
+
       res.cookie(key, value, cookieOptions);
     });
   } else {
