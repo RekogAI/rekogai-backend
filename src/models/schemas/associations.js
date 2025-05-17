@@ -105,6 +105,18 @@ User.hasMany(Token, {
   as: "tokens",
 });
 
+// Self-referencing relationship for parent-child folders
+Folder.hasMany(Folder, {
+  foreignKey: "parentFolderId",
+  as: "subFolders",
+});
+Folder.belongsTo(Folder, {
+  foreignKey: "parentFolderId",
+  as: "parentFolder",
+  // onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
 export default {
   User,
   Image,

@@ -14,6 +14,8 @@ export const API_ERROR_CODES = {
   INVALID_IMAGE: "INVALID_IMAGE",
   SESSION_EXPIRED: "SESSION_EXPIRED",
   ACCESS_TOKEN_NOT_GENERATED: "ACCESS_TOKEN_NOT_GENERATED",
+  RESOURCE_NOT_FOUND: "RESOURCE_NOT_FOUND",
+  RESOURCE_EXISTS: "RESOURCE_EXISTS",
 };
 
 export const API_ERROR_MESSAGES = {
@@ -34,6 +36,8 @@ export const API_ERROR_MESSAGES = {
   MULTIPLE_FACES_FOUND: "Multiple faces found in the image",
   SESSION_EXPIRED: "Session expired, please log in again",
   ACCESS_TOKEN_NOT_GENERATED: "Token cannot be refreshed, please log in again",
+  RESOURCE_NOT_FOUND: "The requested resource was not found",
+  RESOURCE_EXISTS: "Resource already exists",
 };
 
 export const API_ERROR_STATUS_CODES = {

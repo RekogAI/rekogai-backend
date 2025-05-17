@@ -206,10 +206,44 @@ class TokenModel {
    */
   async updateToken(tokenId, newToken) {
     try {
+      // Check if tokenId is valid
+      if (!tokenId) {
+        Logger.error("Invalid tokenId provided for update");
+        return false;
+      }
+
+      // Get token value regardless of input format
+      const tokenValue =
+        typeof newToken === "object" && newToken.token
+          ? newToken.token
+          : newToken;
+
+      // Verify the token exists before updating
+      const existingTokenRecord = await this.Token.findByPk(tokenId);
+      if (!existingTokenRecord) {
+        Logger.error(`Token with ID ${tokenId} not found for update`);
+        return false;
+      }
+
+      // Check for unique constraint violations
+      const duplicateToken = await this.Token.findOne({
+        where: {
+          token: tokenValue,
+          tokenId: { [Op.ne]: tokenId }, // Exclude the current token
+        },
+      });
+
+      if (duplicateToken) {
+        Logger.error(
+          `Cannot update token: value already exists in another record`
+        );
+        return false;
+      }
+
       const [updatedCount] = await this.Token.update(
         {
-          token: newToken,
-          generatedAt: new Date(),
+          token: tokenValue,
+          generatedAt: new Date(), // Reset generated time to prevent expiration
           status: TOKEN_STATUS.VALID,
         },
         {
@@ -217,9 +251,12 @@ class TokenModel {
         }
       );
 
+      Logger.info(
+        `Token ${tokenId} updated successfully. Rows affected: ${updatedCount}`
+      );
       return updatedCount > 0;
     } catch (error) {
-      console.error("Token update error:", error);
+      Logger.error("Token update error:", error);
       return false;
     }
   }

@@ -16,6 +16,15 @@ import {
   generatePreSignedURLRoute,
 } from "../controllers/s3Controller/index.js";
 
+import {
+  createFolderRoute,
+  deleteFolderRoute,
+  getFolderContentsRoute,
+  getFolderRoute,
+  renameFolderRoute,
+  restoreFolderRoute,
+} from "../controllers/folderController/index.js";
+
 const createRouter = () => {
   const router = express.Router();
 
@@ -34,6 +43,14 @@ const createRouter = () => {
   // router.post("/register-face", registerFaceRoute);
   // router.post("/verify-face", verifyFaceRoute);
   router.get("/logout", sessionMiddleware, logoutRoute);
+
+  // folder routes
+  router.post("/create-folder", createFolderRoute);
+  router.get("/get-all-folders", getFolderContentsRoute);
+  router.get("/get-folder", getFolderRoute);
+  router.put("/rename-folder", renameFolderRoute);
+  router.delete("/delete-folder", deleteFolderRoute);
+  router.put("/restore-folder", restoreFolderRoute);
 
   // Add photos to a bucket
   router.post(

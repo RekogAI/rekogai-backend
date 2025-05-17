@@ -21,14 +21,39 @@ const Folder = sequelize.define(
       onDelete: "cascade",
     },
     folderName: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(255),
       allowNull: false,
-      comment: "Name of the folder",
     },
-    description: {
-      type: DataTypes.STRING,
+    folderPath: {
+      type: DataTypes.STRING(1024),
+      allowNull: false,
+    },
+    parentFolderId: {
+      type: DataTypes.UUID,
       allowNull: true,
-      comment: "Description of the folder",
+      references: {
+        model: TABLE_NAME.FOLDERS,
+        key: "folderId",
+      },
+      onUpdate: "cascade",
+      onDelete: "set null",
+    },
+    isRoot: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    isDeleted: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    totalItems: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    totalSize: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      comment: "in bytes",
     },
   },
   {
