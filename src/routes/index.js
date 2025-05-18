@@ -25,6 +25,11 @@ import {
   restoreFolderRoute,
 } from "../controllers/folderController/index.js";
 
+import {
+  initiateImageUploadRoute,
+  confirmImageUploadRoute,
+} from "../controllers/imageController/index.js";
+
 const createRouter = () => {
   const router = express.Router();
 
@@ -51,6 +56,10 @@ const createRouter = () => {
   router.put("/rename-folder", renameFolderRoute);
   router.delete("/delete-folder", deleteFolderRoute);
   router.put("/restore-folder", restoreFolderRoute);
+
+  // image upload
+  router.post("/initiate-image-upload", initiateImageUploadRoute);
+  router.put("/confirm-image-upload", confirmImageUploadRoute);
 
   // Add photos to a bucket
   router.post(

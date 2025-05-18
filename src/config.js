@@ -42,6 +42,7 @@ const config = {
     REKOGNITION_AUTH_BUCKET_NAME: process.env.REKOGNITION_AUTH_BUCKET_NAME,
     PASSWORD_PEPPER: process.env.PASSWORD_PEPPER,
     SALT_ROUNDS: process.env.SALT_ROUNDS,
+    S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
   },
 };
 

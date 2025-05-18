@@ -29,13 +29,6 @@ const Image = sequelize.define(
       },
       onUpdate: "cascade",
       onDelete: "set null",
-      comment: "The folder in which the image is stored",
-    },
-    isImageQualityOk: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      allowNull: true,
-      comment: "Whether the image quality is good or not",
     },
     fileName: {
       type: DataTypes.STRING(255),
@@ -44,63 +37,22 @@ const Image = sequelize.define(
     fileSizeInKiloBytes: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      comment: "The size of the image file in kilobytes",
     },
     fileMIMEtype: {
       type: DataTypes.ENUM("JPEG", "PNG"),
       allowNull: false,
-      comment: "The MIME type of the image file",
     },
     fileStatus: {
-      type: DataTypes.ENUM(
-        "PRESIGNED_URL_GENERATED",
-        "FAILED_TO_GENERATE_PRESIGNED_URL",
-        "UPLOADED_TO_S3",
-        "FAILED_TO_UPLOAD_TO_S3",
-        "FACES_DETECTED",
-        "NO_FACES_DETECTED",
-        "FACES_INDEXED"
-      ),
+      type: DataTypes.STRING(50),
       allowNull: false,
-      comment: "The status of the image file",
     },
     fileLocationInS3: {
       type: DataTypes.STRING,
       allowNull: true,
-      comment: "The location of the image file in S3",
     },
     signedUrl: {
       type: DataTypes.STRING,
       allowNull: true,
-      comment: "The pre-signed URL for uploading the image to S3",
-    },
-    signedUrlGenerationTimestamp: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      get() {
-        const value = this.getDataValue("signedUrlGenerationTimestamp");
-        return value
-          ? value.toISOString().replace("T", " ").substring(0, 19)
-          : null;
-      },
-      set(value) {
-        this.setDataValue("signedUrlGenerationTimestamp", new Date(value));
-      },
-      comment: "The time when the signed URL was generated",
-    },
-    signedUrlExpirationTimestamp: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      get() {
-        const value = this.getDataValue("signedUrlExpirationTimestamp");
-        return value
-          ? value.toISOString().replace("T", " ").substring(0, 19)
-          : null;
-      },
-      set(value) {
-        this.setDataValue("signedUrlExpirationTimestamp", new Date(value));
-      },
-      comment: "The time when the signed URL expires",
     },
     uploadedAt: {
       type: DataTypes.DATE,
@@ -114,58 +66,35 @@ const Image = sequelize.define(
       set(value) {
         this.setDataValue("uploadedAt", new Date(value));
       },
-      comment: "The time when the image was uploaded to S3",
     },
-
-    facesDetected: {
+    // Simplified face detection data
+    hasDetectedFaces: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
-      allowNull: true,
     },
-    facesDetectedCount: {
+    faceCount: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
-      allowNull: true,
     },
-    SearchFacesByImageResponse: {
-      type: DataTypes.JSONB,
-      allowNull: true,
-    },
-    facesMatchedInCollectionCount: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      allowNull: true,
-    },
-    matchedFaceIds: {
-      type: DataTypes.ARRAY(DataTypes.UUID),
-      allowNull: true,
-      defaultValue: [],
-    },
-    skippedFacesIndexing: {
+    imageQuality: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
-      allowNull: true,
     },
-    facesIndexedCount: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-    },
-    facesIndexingFailedCount: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-    },
-    facesIndexingFailedReasons: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      allowNull: true,
-      defaultValue: [],
-    },
-    IndexFacesResponse: {
+    // JSON columns for complex data
+    faceData: {
       type: DataTypes.JSONB,
       allowNull: true,
+      comment: "Contains face detection info, matches and indexing results",
     },
-    metadata: {
+    imageMetadata: {
       type: DataTypes.JSONB,
       allowNull: true,
+      comment: "Contains general image metadata, URLs, processing dates",
+    },
+    processingResults: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      comment: "Contains AWS API response data and processing results",
     },
   },
   {

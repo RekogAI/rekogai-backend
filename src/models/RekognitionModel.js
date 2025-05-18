@@ -30,6 +30,7 @@ const rekognitionClient = new RekognitionClient(
   config[ENVIRONMENT].AWS_SDK_CONFIG
 );
 const s3Client = new S3Client(config[ENVIRONMENT].AWS_SDK_CONFIG);
+/* TODO: Refactor this file and modify the functions as per FolderModel structure */
 
 const createCollection = async () => {
   try {
