@@ -67,6 +67,7 @@ app.use((req, res, next) => {
   next(createError(404));
 });
 
+
 // Custom error handler to format errors
 app.use(errorHandler);
 

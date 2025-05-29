@@ -37,6 +37,18 @@ const createRouter = () => {
   router.use(bodyParser.json({ limit: "100mb", extended: true }));
   router.use(bodyParser.urlencoded({ limit: "100mb", extended: true }));
 
+  // Add this before your error handling middleware
+  router.get("/health", (req, res) => {
+    res.status(200).json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV,
+      version: process.env.npm_package_version || "1.0.0",
+      database: "connected", // You can add actual DB health check here
+    });
+  });
+
   // get-started
   router.post("/signup", signUpRoute);
   router.post("/verify", verifySignupRoute);
