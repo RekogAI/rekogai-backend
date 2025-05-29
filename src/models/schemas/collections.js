@@ -1,17 +1,17 @@
 import { DataTypes } from "sequelize";
-import sequelize from "../config/database";
-import { TABLE_NAME } from "../../utility/constants";
+import sequelize from "../../config/database.js";
+import { TABLE_NAME } from "../../utility/constants.js";
 
 const Collections = sequelize.define(
   TABLE_NAME.COLLECTIONS,
   {
     collectionId: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
     userId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: TABLE_NAME.USERS,

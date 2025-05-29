@@ -2,10 +2,10 @@ import { DataTypes } from "sequelize";
 import sequelize from "../../config/database.js";
 import { TABLE_NAME } from "../../utility/constants.js";
 
-const Folder = sequelize.define(
-  TABLE_NAME.FOLDERS,
+const Token = sequelize.define(
+  TABLE_NAME.TOKENS,
   {
-    folderId: {
+    tokenId: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
@@ -20,44 +20,41 @@ const Folder = sequelize.define(
       onUpdate: "cascade",
       onDelete: "cascade",
     },
-    folderName: {
+    token: {
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    folderPath: {
-      type: DataTypes.STRING(1024),
+    tokenType: {
+      type: DataTypes.ENUM("ACCESS", "REFRESH", "ID"),
       allowNull: false,
     },
-    parentFolderId: {
-      type: DataTypes.UUID,
+    generatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    expiredAt: {
+      type: DataTypes.DATE,
       allowNull: true,
-      references: {
-        model: TABLE_NAME.FOLDERS,
-        key: "folderId",
-      },
-      onUpdate: "cascade",
-      onDelete: "set null",
     },
-    isRoot: {
+    isRevoked: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
-    isDeleted: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
+    status: {
+      type: DataTypes.ENUM("VALID", "INVALID"),
+      allowNull: false,
+      defaultValue: "VALID",
     },
-    totalItems: {
+    validityInMinutes: {
       type: DataTypes.INTEGER,
-      defaultValue: 0,
-    },
-    totalSize: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      comment: "in bytes",
+      allowNull: false,
+      comment:
+        "ACCESS_TOKEN validity is 30 minutes by default, REFRESH_TOKEN 24 hours, ID_TOKEN till user logs out or REFRESH_TOKEN expires",
     },
   },
   {
-    tableName: TABLE_NAME.FOLDERS,
+    tableName: TABLE_NAME.TOKENS,
     timestamps: true,
     freezeTableName: true,
     paranoid: true,
@@ -66,4 +63,4 @@ const Folder = sequelize.define(
   }
 );
 
-export default Folder;
+export default Token;

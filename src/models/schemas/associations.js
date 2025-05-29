@@ -5,6 +5,7 @@ import Album from "./albums.js";
 import Folder from "./folders.js";
 import APIResponse from "./api_reponse.js";
 import Thumbnail from "./thumbnails.js";
+import Token from "./tokens.js";
 
 // User Associations
 User.hasMany(Image, {
@@ -93,4 +94,36 @@ Face.hasOne(Thumbnail, {
   as: "thumbnail",
 });
 
-export default { User, Image, Face, Album, Folder, APIResponse, Thumbnail };
+// Token Associations
+Token.belongsTo(User, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+User.hasMany(Token, {
+  foreignKey: "userId",
+  as: "tokens",
+});
+
+// Self-referencing relationship for parent-child folders
+Folder.hasMany(Folder, {
+  foreignKey: "parentFolderId",
+  as: "subFolders",
+});
+Folder.belongsTo(Folder, {
+  foreignKey: "parentFolderId",
+  as: "parentFolder",
+  // onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+export default {
+  User,
+  Image,
+  Face,
+  Album,
+  Folder,
+  APIResponse,
+  Thumbnail,
+  Token,
+};

@@ -1,0 +1,27 @@
+version: "3.8"
+services:
+  rekogai-backend:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - ENVIRONMENT=production
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - REKOGNITION_AUTH_BUCKET_NAME=${REKOGNITION_AUTH_BUCKET_NAME}
+      - REKOGNITION_AUTH_COLLECTION_ID=${REKOGNITION_AUTH_COLLECTION_ID}
+      - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
+      - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
+      - PASSWORD_PEPPER=${PASSWORD_PEPPER}
+      - SALT_ROUNDS=${SALT_ROUNDS}
+      - PORT=8080
+    env_file:
+      - .env

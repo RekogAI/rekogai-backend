@@ -1,0 +1,235 @@
+{
+  "info": {
+    "name": "RekogAI Cognito API Collection",
+    "description": "API collection for authentication endpoints using AWS Cognito",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "Authentication related endpoints",
+      "item": [
+        {
+          "name": "Sign Up (Email)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user@example.com\",\n  \"password\": \"YourSecurePassword123!\",\n  \"attributes\": [\n    {\n      \"Name\": \"email\",\n      \"Value\": \"user@example.com\"\n    },\n    {\n      \"Name\": \"name\",\n      \"Value\": \"John Doe\"\n    }\n  ],\n  \"signUpMethod\": \"EMAIL\"\n}"
+            },
+            "description": "Register a new user using email"
+          }
+        },
+        {
+          "name": "Sign Up (Face ID)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user@example.com\",\n  \"faceImage\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgABA...\",\n  \"signUpMethod\": \"FACE_ID\"\n}"
+            },
+            "description": "Register a new user using face recognition"
+          }
+        },
+        {
+          "name": "Confirm Sign Up",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "confirm"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user@example.com\",\n  \"confirmationCode\": \"123456\"\n}"
+            },
+            "description": "Confirm user registration with verification code"
+          }
+        },
+        {
+          "name": "Resend Confirmation Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-code",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "resend-code"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user@example.com\"\n}"
+            },
+            "description": "Resend confirmation code to the user's email"
+          }
+        },
+        {
+          "name": "Sign In (Email)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/signin",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signin"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user@example.com\",\n  \"password\": \"YourSecurePassword123!\",\n  \"loginMethod\": \"EMAIL\"\n}"
+            },
+            "description": "Sign in using email and password"
+          }
+        },
+        {
+          "name": "Sign In (Face ID)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/signin",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signin"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user@example.com\",\n  \"faceImage\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgABA...\",\n  \"loginMethod\": \"FACE_ID\"\n}"
+            },
+            "description": "Sign in using face recognition"
+          }
+        },
+        {
+          "name": "Refresh Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Refresh the authentication session using refresh token in cookies"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Log out the current user and invalidate tokens"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Password Management",
+      "description": "Password reset and recovery endpoints",
+      "item": [
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forgot-password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user@example.com\"\n}"
+            },
+            "description": "Initiate password reset flow"
+          }
+        },
+        {
+          "name": "Confirm Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/confirm-forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "confirm-forgot-password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user@example.com\",\n  \"confirmationCode\": \"123456\",\n  \"newPassword\": \"NewSecurePassword123!\"\n}"
+            },
+            "description": "Complete password reset with confirmation code"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    }
+  ]
+}
