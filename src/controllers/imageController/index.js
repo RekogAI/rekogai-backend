@@ -12,3 +12,8 @@ export const confirmImageUploadRoute = asyncHandler(async (req, res) => {
   const apiResponse = await imageModel.confirmImageUpload(req.body);
   return handleApiResponse(res, apiResponse);
 });
+
+export const fetchUploadedImagesRoute = asyncHandler(async (req, res) => {
+  const apiResponse = await imageModel.fetchUploadedImages(req.query);
+  return handleApiResponse(res, apiResponse);
+});

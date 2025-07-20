@@ -28,6 +28,7 @@ import {
 import {
   initiateImageUploadRoute,
   confirmImageUploadRoute,
+  fetchUploadedImagesRoute,
 } from "../controllers/imageController/index.js";
 
 const createRouter = () => {
@@ -82,6 +83,9 @@ const createRouter = () => {
 
   // Rekognition
   router.post("/create-albums", sessionMiddleware, createAlbumsRoute);
+
+  // images
+  router.get("/fetch-uploaded-images", fetchUploadedImagesRoute);
 
   return router;
 };

@@ -94,6 +94,7 @@ export const logRequest = (req, res, next) => {
 
 export const sessionMiddleware = async (req, res, next) => {
   try {
+    console.log("🚀 ~ sessionMiddleware ~ req.cookies:", req.cookies);
     const JWT_TOKEN = req.cookies.access_token;
 
     // Check if the token exists
@@ -102,6 +103,7 @@ export const sessionMiddleware = async (req, res, next) => {
     }
 
     const tokenRecord = await verifyFaceAuthToken(JWT_TOKEN);
+    console.log("🚀 ~ sessionMiddleware ~ tokenRecord:", tokenRecord);
 
     if (!tokenRecord) {
       throw new Error("Invalid face authentication token");
