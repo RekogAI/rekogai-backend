@@ -16,6 +16,7 @@ import RekognitionModel from "./RekognitionModel.js";
 const { config, ENVIRONMENT, AWS_REGION } = configObj;
 import models from "../models/schemas/associations.js";
 import S3Model from "./S3Model.js";
+import FolderModel from "./FolderModel.js";
 import { ApiError, throwApiError } from "../utility/ErrorHandler.js";
 import {
   API_ERROR_CODES,
@@ -43,6 +44,7 @@ class CognitoModel {
     this.clientId = config[ENVIRONMENT].COGNITO_CLIENT_ID;
     this.userModel = new UserModel();
     this.tokenModel = new TokenModel();
+    this.folderModel = new FolderModel();
   }
 
   /**
@@ -134,6 +136,12 @@ class CognitoModel {
       }).then((user) => user.toJSON());
       console.log(" CognitoModel_emailSignUp createdUser", createdUser);
 
+      // Create root folder for the user
+      await this.folderModel.createRootFolder({
+        userId: createdUser.userId,
+        folderName: "My Files",
+      });
+
       // Return user without hashed password
       const { password: _, ...userWithoutPassword } = createdUser;
 
@@ -186,6 +194,12 @@ class CognitoModel {
         faceIDS3Key: s3UploadResult.key,
       }).then((user) => user.toJSON());
 
+      // Create root folder for the user
+      await this.folderModel.createRootFolder({
+        userId: createdUser.userId,
+        folderName: "My Files",
+      });
+
       // Return user without hashed password
       const { password: _, ...userWithoutPassword } = createdUser;
 
@@ -237,11 +251,7 @@ class CognitoModel {
         { where: { email: username } }
       );
 
-      await this.generateTokenAndSetCookies(
-        res,
-        userExists.userId,
-        signUpMethod
-      );
+      await this.generateTokenAndSetCookies(res, userExists.userId);
 
       return { ...userExists, isEmailVerified: emailVerified > 0 };
     } catch (error) {
@@ -285,15 +295,23 @@ class CognitoModel {
    * @param {Object} res - Express response object for setting cookies
    * @returns {Promise<Object>} Authentication result
    */
-  async signIn({ username, password, loginMethod, faceIDImageBase64 }, res) {
+  async signIn(
+    { username, password, loginMethod, faceIDImageBase64, rememberMe },
+    res
+  ) {
     console.log(`Attempting to sign in with method: ${loginMethod}`);
 
     let response;
 
     if (loginMethod === SIGN_UP_METHODS.EMAIL) {
-      response = this._emailSignIn({ username, password, res });
+      response = this._emailSignIn({ username, password, res, rememberMe });
     } else if (loginMethod === SIGN_UP_METHODS.FACE_ID) {
-      response = this._faceIdSignIn({ username, faceIDImageBase64, res });
+      response = this._faceIdSignIn({
+        username,
+        faceIDImageBase64,
+        res,
+        rememberMe,
+      });
     }
 
     return response;
@@ -303,7 +321,7 @@ class CognitoModel {
    * Handle email-based authentication
    * @private
    */
-  async _emailSignIn({ username, password, res }) {
+  async _emailSignIn({ username, password, res, rememberMe }) {
     try {
       if (!username || !password) {
         throwApiError(
@@ -338,6 +356,7 @@ class CognitoModel {
           PASSWORD: password,
         },
       };
+      console.log("🚀 ~ CognitoModel ~ _emailSignIn ~ params:", params);
 
       const command = new InitiateAuthCommand(params);
       const InitiateAuthCommandResponse = await this.client.send(command);
@@ -354,7 +373,8 @@ class CognitoModel {
       await this.generateTokenAndSetCookies(
         res,
         userDetails.userId,
-        SIGN_UP_METHODS.EMAIL
+
+        rememberMe
       );
 
       return { ...userDetails };
@@ -368,7 +388,7 @@ class CognitoModel {
    * Handle face recognition-based authentication
    * @private
    */
-  async _faceIdSignIn({ username, faceIDImageBase64, res }) {
+  async _faceIdSignIn({ username, faceIDImageBase64, res, rememberMe }) {
     try {
       if (!username || !faceIDImageBase64) {
         throwApiError(
@@ -437,11 +457,7 @@ class CognitoModel {
       const signedUrl = await S3Model.getPresignedUrl(faceIDS3Key);
       console.log("Signed URL for face image:", signedUrl);
 
-      await this.generateTokenAndSetCookies(
-        res,
-        user.userId,
-        SIGN_UP_METHODS.FACE_ID
-      );
+      await this.generateTokenAndSetCookies(res, user.userId, rememberMe);
 
       const { password: _, ...userWithoutPassword } = user;
 

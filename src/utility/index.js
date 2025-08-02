@@ -18,6 +18,9 @@ export const setCookies = (res, cookies, rememberMe = false) => {
       secure: isProduction,
       sameSite: isProduction ? "none" : "lax",
       path: "/",
+      maxAge: rememberMe
+        ? TOKEN_VALIDITY_IN_MILLISECONDS["30_DAYS"]
+        : TOKEN_VALIDITY_IN_MILLISECONDS["30_MINUTES"],
     };
 
     Object.entries(cookies).forEach(([key, value]) => {

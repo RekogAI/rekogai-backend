@@ -20,6 +20,7 @@ class TokenModel {
    */
   async generateToken(userId, tokenType, expiresInMinutes, onlyUpdate = false) {
     try {
+      console.log(`Generating ${tokenType} token for user ${userId}`);
       const token = crypto.randomBytes(64).toString("hex");
 
       if (onlyUpdate) {
@@ -65,8 +66,8 @@ class TokenModel {
             attributes: ["userId", "email", "signUpMethod", "lastLoginMethod"],
           },
         ],
-        raw: true,
-      });
+        nest: true,
+      }).then((details) => details.toJSON());
 
       return tokenRecord;
     } catch (error) {

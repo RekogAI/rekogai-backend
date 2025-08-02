@@ -4,10 +4,88 @@ import { Op } from "sequelize";
 import { FolderExceptions } from "./exceptions.js";
 import path from "path";
 import { generateUUID } from "../utility/index.js";
+import ImageModel from "./ImageModel.js";
+import { generatePresignedUrl } from "../utility/s3.js";
 
 class FolderModel {
   constructor() {
     this.Folder = models.Folder;
+    this.ImageModel = new ImageModel();
+  }
+
+  /**
+   * Create a root folder for a user
+   * @param {Object} folderData - Root folder data
+   * @param {string} folderData.userId - User ID
+   * @param {string} folderData.folderName - Root folder name (default: "My Files")
+   * @returns {Promise<Object>} Created root folder
+   */
+  async createRootFolder({ userId, folderName = "My Files" }) {
+    try {
+      if (!userId) {
+        FolderExceptions.throwInvalidParametersError();
+      }
+
+      // Check if root folder already exists for the user
+      const existingRootFolder = await this.Folder.findOne({
+        where: {
+          userId,
+          isRoot: true,
+          isDeleted: false,
+        },
+      });
+
+      if (existingRootFolder) {
+        Logger.info(`Root folder already exists for user ${userId}`);
+        return existingRootFolder.toJSON();
+      }
+
+      // Create the root folder
+      const rootFolder = await this.Folder.create({
+        userId,
+        folderName,
+        folderPath: `/${folderName}`,
+        parentFolderId: null,
+        isRoot: true,
+      }).then((folder) => folder.toJSON());
+
+      Logger.info(`Created root folder ${folderName} for user ${userId}`);
+
+      return rootFolder;
+    } catch (error) {
+      Logger.error("Error creating root folder:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user's root folder
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} Root folder
+   */
+  async getRootFolder(userId) {
+    try {
+      if (!userId) {
+        FolderExceptions.throwInvalidParametersError();
+      }
+
+      const rootFolder = await this.Folder.findOne({
+        where: {
+          userId,
+          isRoot: true,
+          isDeleted: false,
+        },
+      });
+
+      if (!rootFolder) {
+        FolderExceptions.throwParentFolderNotFoundError();
+      }
+
+      return rootFolder.toJSON();
+    } catch (error) {
+      Logger.error("Error getting root folder:", error);
+      throw error;
+    }
   }
 
   /**
@@ -15,10 +93,14 @@ class FolderModel {
    * @param {Object} folderData - Folder data
    * @param {string} folderData.userId - User ID
    * @param {string} folderData.folderName - Folder name
-   * @param {string} folderData.parentFolderId - Parent folder ID (optional)
+   * @param {string} folderData.parentFolderId - Parent folder ID (optional, defaults to root)
    * @returns {Promise<Object>} Created folder
    */
   async createFolder({ userId, folderName, parentFolderId = null }) {
+    console.log(
+      "🚀 ~ FolderModel ~ createFolder ~ parentFolderId:",
+      parentFolderId
+    );
     try {
       if (!userId || !folderName) {
         FolderExceptions.throwInvalidParametersError();
@@ -30,37 +112,42 @@ class FolderModel {
         FolderExceptions.throwInvalidFolderNameError();
       }
 
+      // If no parentFolderId provided, use root folder as parent
+      if (!parentFolderId) {
+        console.log("No parent folder ID provided, using root folder.");
+        const rootFolder = await this.getRootFolder(userId);
+        console.log(
+          "🚀 ~ FolderModel ~ createFolder ~ rootFolder:",
+          rootFolder
+        );
+        parentFolderId = rootFolder.folderId;
+      }
+
       // Check if parent folder exists and belongs to the user
       let folderPath = "";
       let isRoot = false;
 
-      if (parentFolderId) {
-        const parentFolder = await this.Folder.findOne({
-          where: {
-            folderId: parentFolderId,
-            userId,
-            isDeleted: false,
-          },
-        });
+      const parentFolder = await this.Folder.findOne({
+        where: {
+          folderId: parentFolderId,
+          userId,
+          isDeleted: false,
+        },
+      });
 
-        if (!parentFolder) {
-          FolderExceptions.throwParentFolderNotFoundError();
-        }
-
-        // Create path based on parent folder
-        folderPath = path.join(parentFolder.folderPath, folderName);
-      } else {
-        // This is a root folder
-        folderPath = `/${folderName}`;
-        isRoot = true;
+      if (!parentFolder) {
+        FolderExceptions.throwParentFolderNotFoundError();
       }
+
+      // Create path based on parent folder
+      folderPath = path.join(parentFolder.folderPath, folderName);
 
       // Check if folder with same name already exists at this path
       const existingFolder = await this.Folder.findOne({
         where: {
           userId,
           folderName,
-          // parentFolderId: parentFolderId || null,
+          parentFolderId,
           isDeleted: false,
         },
       });
@@ -74,7 +161,7 @@ class FolderModel {
         userId,
         folderName,
         folderPath,
-        parentFolderId: parentFolderId || null,
+        parentFolderId,
         isRoot,
       }).then((folder) => folder.toJSON());
 
@@ -406,6 +493,41 @@ class FolderModel {
     }
   }
 
+  async generatePresignedURLsForFolderImages(images, userId) {
+    console.log(
+      "🚀 ~ FolderModel ~ generatePresignedURLsForFolderImages ~ images:",
+      images
+    );
+    try {
+      if (!images || images.length === 0) {
+        return [];
+      } else if (!userId) {
+        FolderExceptions.throwInvalidParametersError();
+      }
+
+      const imagePromises = images.map(async (image) => {
+        const s3Key = image.fileLocationInS3;
+        const presignedURL = await generatePresignedUrl({
+          operation: "get",
+          key: s3Key,
+          expiresIn: 3600,
+        });
+        return {
+          ...image,
+          presignedURL,
+        };
+      });
+      return await Promise.allSettled(imagePromises).then((results) => {
+        return results
+          .filter((result) => result.status === "fulfilled")
+          .map((result) => result.value);
+      });
+    } catch (error) {
+      Logger.error("Error generating presigned URLs for images:", error);
+      throw error;
+    }
+  }
+
   /**
    * Get a folder by ID
    * @param {Object} params - Query parameters
@@ -413,14 +535,12 @@ class FolderModel {
    * @param {string} params.folderId - Folder ID
    * @returns {Promise<Object>} Folder details
    **/
-  async getFolderById({ userId, folderId }) {
+  async getFolderById({ userId, folderId = null }) {
     try {
-      // Validate inputs
-      if (!userId || !folderId) {
+      if (!userId) {
         FolderExceptions.throwInvalidParametersError();
       }
 
-      // Find the folder by ID
       const folder = await this.Folder.findOne({
         where: {
           folderId,
@@ -452,10 +572,22 @@ class FolderModel {
       if (!folder) {
         FolderExceptions.throwFolderNotFoundError();
       }
-
       Logger.info(`Retrieved folder ${folder.folderName} for user ${userId}`);
 
-      return folder;
+      const folderImagesWithPresignedURLS =
+        await this.generatePresignedURLsForFolderImages(folder.images, userId);
+
+      console.log(
+        "🚀 ~ FolderModel ~ getFolderById ~ folderImagesWithPresignedURLS:",
+        folderImagesWithPresignedURLS
+      );
+
+      const folderDetails = {
+        ...folder,
+        images: folderImagesWithPresignedURLS,
+      };
+
+      return folderDetails;
     } catch (error) {
       Logger.error("Error fetching folder:", error);
       throw error;
@@ -533,6 +665,62 @@ class FolderModel {
       };
     } catch (error) {
       Logger.error("Error restoring folder:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch folder content including subfolders and images
+   * @param {Object} params - Query parameters
+   * @param {string} params.userId - User ID
+   * @param {string} [params.folderId] - Folder ID (optional, if not provided returns root content)
+   * @param {string} [params.folderName] - Filter folders by name (optional)
+   * @param {string} [params.sortBy='createdAt'] - Sort by field (createdAt, folderName, totalItems, totalSize)
+   * @param {string} [params.sortOrder='DESC'] - Sort order (ASC or DESC)
+   * @param {string} [params.filterBy] - Filter images by 'name' or 'tag' (optional)
+   * @param {string} [params.searchParam] - Search string value for images (optional)
+   * @param {string} [params.imageSortBy='newest'] - Sort images by 'alphabetical', 'newest', or 'size'
+   * @param {string} [params.imageSortOrder='desc'] - Image sort order 'asc' or 'desc'
+   * @param {number} [params.page=1] - Page number for images
+   * @returns {Promise<Object>} Combined folder and image data
+   */
+  async fetchFolderContent({
+    userId,
+    folderId = null,
+    folderName,
+    sortBy = "createdAt",
+    sortOrder = "DESC",
+    filterBy = null,
+    searchParam = null,
+    imageSortBy = "newest",
+    imageSortOrder = "desc",
+    page = 1,
+  }) {
+    try {
+      // Validate inputs
+      if (!userId) {
+        FolderExceptions.throwInvalidParametersError();
+      }
+
+      let folderData = null;
+      // let foldersResult = null;
+      let imagesResult = null;
+
+      if (folderId) {
+        folderData = await this.getFolderById({ userId, folderId });
+      } else {
+        const rootFolder = await this.getRootFolder(userId);
+
+        folderData = await this.getFolderById({
+          userId,
+          folderId: rootFolder.folderId,
+        });
+      }
+      return {
+        currentFolder: folderData,
+      };
+    } catch (error) {
+      Logger.error("Error fetching folder content:", error);
       throw error;
     }
   }

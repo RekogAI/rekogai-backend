@@ -8,6 +8,7 @@ import { Op } from "sequelize";
 class ImageModel {
   constructor() {
     this.Image = models.Image;
+    this.Folder = models.Folder;
   }
 
   /**
@@ -279,6 +280,12 @@ class ImageModel {
         ],
       });
 
+      // fetch folder details if needed
+      const folderDetails = await this.Folder.findOne({
+        where: { folderId },
+        raw: true,
+      });
+
       // Generate presigned URLs for each image
       const imagesWithUrls = await Promise.allSettled(
         images.map(async (image) => {
@@ -318,6 +325,7 @@ class ImageModel {
 
       return {
         images: imagesWithUrlsResolved,
+        folderDetails,
         pagination: {
           currentPage: Number(page),
           totalPages,

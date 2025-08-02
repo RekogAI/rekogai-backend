@@ -96,6 +96,7 @@ export const sessionMiddleware = async (req, res, next) => {
   try {
     console.log("🚀 ~ sessionMiddleware ~ req.cookies:", req.cookies);
     const JWT_TOKEN = req.cookies.access_token;
+    console.log("🚀 ~ sessionMiddleware ~ JWT_TOKEN:", JWT_TOKEN);
 
     // Check if the token exists
     if (!JWT_TOKEN) {

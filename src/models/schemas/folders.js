@@ -63,6 +63,17 @@ const Folder = sequelize.define(
     paranoid: true,
     charset: "utf8mb4",
     collate: "utf8mb4_unicode_ci",
+    indexes: [
+      {
+        unique: true,
+        fields: ["userId"],
+        where: {
+          isRoot: true,
+          isDeleted: false,
+        },
+        name: "unique_root_folder_per_user",
+      },
+    ],
   }
 );
 

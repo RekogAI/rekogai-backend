@@ -32,3 +32,8 @@ export const restoreFolderRoute = asyncHandler(async (req, res) => {
   const apiResponse = await folderModel.restoreFolder(req.body);
   return handleApiResponse(res, apiResponse);
 });
+
+export const fetchFolderContentRoute = asyncHandler(async (req, res) => {
+  const apiResponse = await folderModel.fetchFolderContent(req.query);
+  return handleApiResponse(res, apiResponse);
+});

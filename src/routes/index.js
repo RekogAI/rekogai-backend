@@ -19,6 +19,7 @@ import {
 import {
   createFolderRoute,
   deleteFolderRoute,
+  fetchFolderContentRoute,
   getFolderContentsRoute,
   getFolderRoute,
   renameFolderRoute,
@@ -63,7 +64,7 @@ const createRouter = () => {
   router.get("/logout", sessionMiddleware, logoutRoute);
 
   // folder routes
-  router.post("/create-folder", createFolderRoute);
+  router.post("/create-folder", sessionMiddleware, createFolderRoute);
   router.get("/get-all-folders", getFolderContentsRoute);
   router.get("/get-folder", getFolderRoute);
   router.put("/rename-folder", renameFolderRoute);
@@ -86,6 +87,9 @@ const createRouter = () => {
 
   // images
   router.get("/fetch-uploaded-images", fetchUploadedImagesRoute);
+
+  // Fetch folder content
+  router.get("/fetch-folder-content", fetchFolderContentRoute);
 
   return router;
 };
