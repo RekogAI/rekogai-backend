@@ -48,6 +48,7 @@ export const TOKEN_VALIDITY_IN_MINUTES = {
 };
 
 export const TOKEN_VALIDITY_IN_MILLISECONDS = {
+  "5_MINUTES":  5 * 60 * 1000,
   "30_MINUTES": 3600 * 30,
   "24_HOURS": 3600 * 60 * 24,
   "30_DAYS": 3600 * 60 * 24 * 30,

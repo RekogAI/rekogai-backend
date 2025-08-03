@@ -25,8 +25,6 @@ export const handleApiResponse = (
   result,
   successMessage = "Request was successful"
 ) => {
-  console.log(" result instanceof Error", result instanceof Error, result);
-
   if (result instanceof Error) {
     console.error("Error Occurred", result);
 

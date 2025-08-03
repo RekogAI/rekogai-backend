@@ -251,7 +251,12 @@ class CognitoModel {
         { where: { email: username } }
       );
 
-      await this.generateTokenAndSetCookies(res, userExists.userId);
+      await this.generateTokenAndSetCookies(
+        res,
+        userExists.userId,
+        true,
+        userExists.email
+      );
 
       return { ...userExists, isEmailVerified: emailVerified > 0 };
     } catch (error) {
@@ -373,8 +378,8 @@ class CognitoModel {
       await this.generateTokenAndSetCookies(
         res,
         userDetails.userId,
-
-        rememberMe
+        rememberMe,
+        userDetails.email
       );
 
       return { ...userDetails };
@@ -457,7 +462,12 @@ class CognitoModel {
       const signedUrl = await S3Model.getPresignedUrl(faceIDS3Key);
       console.log("Signed URL for face image:", signedUrl);
 
-      await this.generateTokenAndSetCookies(res, user.userId, rememberMe);
+      await this.generateTokenAndSetCookies(
+        res,
+        user.userId,
+        rememberMe,
+        user.email
+      );
 
       const { password: _, ...userWithoutPassword } = user;
 
@@ -518,10 +528,6 @@ class CognitoModel {
       const idToken = req.cookies?.id_token;
       const refreshToken = req.cookies?.refresh_token;
       const accessToken = req.cookies?.access_token;
-
-      // const idToken = req.body?.id_token;
-      // const refreshToken = req.body?.refresh_token;
-      // const accessToken = req.body?.access_token;
 
       // Check if refresh token exists in cookies
       if (!refreshToken || !idToken || !accessToken) {
@@ -808,7 +814,7 @@ class CognitoModel {
    * @param {Object} res - Express response object for setting cookies
    * @param {Object} user - User details
    */
-  async generateTokenAndSetCookies(res, userId, rememberMe = false) {
+  async generateTokenAndSetCookies(res, userId, rememberMe = false, email) {
     const accessToken = await this.tokenModel.generateToken(
       userId,
       TOKEN_TYPE.ACCESS,
@@ -833,6 +839,8 @@ class CognitoModel {
       access_token: accessToken?.token,
       refresh_token: refreshToken?.token,
       id_token: idToken?.token,
+      user_id: userId,
+      email: email || null,
     };
 
     setCookies(res, cookies, rememberMe);
