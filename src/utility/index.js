@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import Logger from "../lib/Logger.js";
-import { TOKEN_VALIDITY_IN_MILLISECONDS } from "./constants.js";
+import { getMilliseconds } from "./constants.js";
 
 export const generateUUID = () => {
   return crypto.randomBytes(16).toString("hex");
@@ -18,29 +18,29 @@ const getCookiesOptions = (rememberMe, cookieName) => {
     case "access_token":
       return {
         ...cookieDefaults,
-        maxAge: TOKEN_VALIDITY_IN_MILLISECONDS["30_MINUTES"],
+        maxAge: getMilliseconds(0, 0, 30, 0), // 30 minutes
       };
     case "refresh_token":
       return {
         ...cookieDefaults,
         maxAge: rememberMe
-          ? TOKEN_VALIDITY_IN_MILLISECONDS["30_DAYS"]
-          : TOKEN_VALIDITY_IN_MILLISECONDS["24_HOURS"],
+          ? getMilliseconds(30, 0, 0, 0) // 30 days
+          : getMilliseconds(0, 24, 0, 0), // 24 hours
       };
     case "id_token":
       return {
         ...cookieDefaults,
         maxAge: rememberMe
-        ? TOKEN_VALIDITY_IN_MILLISECONDS["30_DAYS"]
-        : TOKEN_VALIDITY_IN_MILLISECONDS["24_HOURS"],
+          ? getMilliseconds(30, 0, 0, 0) // 30 days
+          : getMilliseconds(0, 24, 0, 0), // 24 hours
       };
     default:
       Logger.warn(`Unknown cookie name: ${cookieName}`);
       return {
         ...cookieDefaults,
         maxAge: rememberMe
-        ? TOKEN_VALIDITY_IN_MILLISECONDS["30_DAYS"]
-        : TOKEN_VALIDITY_IN_MILLISECONDS["24_HOURS"],
+          ? getMilliseconds(30, 0, 0, 0) // 30 days
+          : getMilliseconds(0, 24, 0, 0), // 24 hours
       };
   }
 };

@@ -5,12 +5,8 @@ import {
 } from "@aws-sdk/client-s3";
 import configObj from "../config.js";
 import { generateUUID } from "../utility/index.js";
-import {
-  PRESIGNED_URL_EXPIRES_IN,
-  IMAGE_STATUS,
-} from "../utility/constants.js";
+import { IMAGE_STATUS, getMilliseconds, getSeconds } from "../utility/constants.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import Logger from "../lib/Logger.js";
 import crypto from "crypto";
 import { Image } from "./index.js";
 
@@ -48,7 +44,7 @@ const savePreUploadImageDetails = async ({
       signedUrl,
       signedUrlGenerationTimestamp: new Date(),
       signedUrlExpirationTimestamp: new Date(
-        Date.now() + PRESIGNED_URL_EXPIRES_IN.AN_HOUR * 1000
+        Date.now() + getMilliseconds(0, 1, 0, 0)
       ),
     });
 
@@ -69,7 +65,7 @@ const generatePreSignedURL = async ({ bucketName, fileDetails, userId }) => {
 
   try {
     const signedUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: PRESIGNED_URL_EXPIRES_IN.AN_HOUR,
+      expiresIn: getSeconds(0, 1, 0, 0), // 1 hour
     });
 
     console.log("Signed URL:", signedUrl);
@@ -194,7 +190,7 @@ const getPresignedUrl = async (imageId) => {
 
   try {
     const signedUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: PRESIGNED_URL_EXPIRES_IN.AN_HOUR,
+      expiresIn: getSeconds(0, 1, 0, 0),
     });
     return signedUrl;
   } catch (error) {

@@ -37,6 +37,7 @@ const Image = sequelize.define(
     fileSizeInKiloBytes: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      comment: "Size in bytes not in kilobytes",
     },
     fileMIMEtype: {
       type: DataTypes.ENUM("JPEG", "PNG"),

@@ -40,19 +40,18 @@ export const SIGN_UP_METHODS = {
   EMAIL: "EMAIL",
 };
 
-export const TOKEN_VALIDITY_IN_MINUTES = {
-  "30_MINUTES": 30,
-  "24_HOURS": 60 * 24,
-  "30_DAYS": 60 * 24 * 30,
-  "1_YEAR": 60 * 24 * 365,
+export const getSeconds = (days, hours, minutes, seconds) => {
+  return days * 24 * 60 * 60 + hours * 60 * 60 + minutes * 60 + seconds;
 };
 
-export const TOKEN_VALIDITY_IN_MILLISECONDS = {
-  "5_MINUTES":  5 * 60 * 1000,
-  "30_MINUTES": 3600 * 30,
-  "24_HOURS": 3600 * 60 * 24,
-  "30_DAYS": 3600 * 60 * 24 * 30,
-  "1_YEAR": 3600 * 60 * 24 * 365,
+export const getMinutes = (days, hours, minutes) => {
+  return days * 24 * 60 + hours * 60 + minutes;
+};
+
+export const getMilliseconds = (days, hours, minutes, seconds) => {
+  return (
+    (days * 24 * 60 * 60 + hours * 60 * 60 + minutes * 60 + seconds) * 1000
+  );
 };
 
 export const TOKEN_TYPE = {

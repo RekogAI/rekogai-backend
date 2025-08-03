@@ -69,7 +69,7 @@ class ImageModel {
         imageId,
         fileName,
         fileMIMEtype: fileType.split("/")[1].toUpperCase(),
-        fileSizeInKiloBytes: Number(fileSize / 1024).toFixed(),
+        fileSizeInKiloBytes: fileSize,
         fileLocationInS3: s3ObjectKey,
         fileStatus: "UPLOAD_INTIATED",
       });

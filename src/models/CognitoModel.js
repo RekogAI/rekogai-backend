@@ -17,7 +17,7 @@ const { config, ENVIRONMENT, AWS_REGION } = configObj;
 import models from "../models/schemas/associations.js";
 import S3Model from "./S3Model.js";
 import FolderModel from "./FolderModel.js";
-import { ApiError, throwApiError } from "../utility/ErrorHandler.js";
+import { throwApiError } from "../utility/ErrorHandler.js";
 import {
   API_ERROR_CODES,
   API_ERROR_MESSAGES,
@@ -26,11 +26,7 @@ import {
 const { User } = models;
 import TokenModel from "./TokenModel.js";
 import bcrypt from "bcrypt";
-import {
-  SIGN_UP_METHODS,
-  TOKEN_VALIDITY_IN_MINUTES,
-  TOKEN_TYPE,
-} from "../utility/constants.js";
+import { SIGN_UP_METHODS, TOKEN_TYPE, getMinutes } from "../utility/constants.js";
 
 /**
  * Class for handling authentication operations using AWS Cognito
@@ -622,13 +618,12 @@ class CognitoModel {
         const userId = _idToken?.user?.userId;
 
         // Check if user has "remember me" enabled by looking at refresh token expiry
-        const rememberMe =
-          _refreshToken.expiryInMinutes > TOKEN_VALIDITY_IN_MINUTES["24_HOURS"];
+        const rememberMe = _refreshToken.expiryInMinutes > getMinutes(1, 0, 0); // 24 hours
 
         const newAccessToken = await this.tokenModel.generateToken(
           userId,
           TOKEN_TYPE.ACCESS,
-          TOKEN_VALIDITY_IN_MINUTES["30_MINUTES"],
+          getMinutes(0, 0, 30),
           true
         );
 
@@ -818,21 +813,19 @@ class CognitoModel {
     const accessToken = await this.tokenModel.generateToken(
       userId,
       TOKEN_TYPE.ACCESS,
-      TOKEN_VALIDITY_IN_MINUTES["30_MINUTES"]
+      getMinutes(0, 0, 30)
     );
 
     const refreshToken = await this.tokenModel.generateToken(
       userId,
       TOKEN_TYPE.REFRESH,
-      rememberMe
-        ? TOKEN_VALIDITY_IN_MINUTES["30_DAYS"]
-        : TOKEN_VALIDITY_IN_MINUTES["24_HOURS"]
+      rememberMe ? getMinutes(30, 0, 0) : getMinutes(1, 0, 0)
     );
 
     const idToken = await this.tokenModel.generateToken(
       userId,
       TOKEN_TYPE.ID,
-      TOKEN_VALIDITY_IN_MINUTES["1_YEAR"]
+      rememberMe ? getMinutes(30, 0, 0) : getMinutes(1, 0, 0)
     );
 
     const cookies = {
