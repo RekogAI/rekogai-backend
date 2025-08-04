@@ -23,12 +23,6 @@ const Face = sequelize.define(
     collectionId: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: {
-        model: TABLE_NAME.COLLECTIONS,
-        key: "collectionId",
-      },
-      onUpdate: "cascade",
-      onDelete: "cascade",
     },
     facePopularityScore: {
       type: DataTypes.INTEGER,

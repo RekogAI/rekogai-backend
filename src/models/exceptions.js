@@ -136,4 +136,117 @@ export const ImageExceptions = {
   },
 };
 
+export const RekognitionExceptions = {
+  /**
+   * Throws an error when required parameters are missing
+   */
+  throwInvalidParametersError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.BAD_REQUEST,
+      API_ERROR_MESSAGES.INVALID_PARAMETERS,
+      API_ERROR_CODES.INVALID_PARAMETERS
+    );
+  },
+  /**
+   * Throws an error when collection creation fails
+   */
+  throwCollectionCreationError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.INTERNAL_SERVER_ERROR,
+      "Failed to create face collection",
+      API_ERROR_CODES.INTERNAL_SERVER_ERROR
+    );
+  },
+  /**
+   * Throws an error when collection already exists
+   */
+  throwCollectionAlreadyExistsError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.CONFLICT,
+      "Face collection already exists",
+      API_ERROR_CODES.RESOURCE_EXISTS
+    );
+  },
+  /**
+   * Throws an error when collection is not found
+   */
+  throwCollectionNotFoundError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.NOT_FOUND,
+      "Face collection not found",
+      API_ERROR_CODES.RESOURCE_NOT_FOUND
+    );
+  },
+  /**
+   * Throws an error when image processing job fails
+   */
+  throwImageProcessingJobError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.INTERNAL_SERVER_ERROR,
+      "Failed to start image processing job",
+      API_ERROR_CODES.INTERNAL_SERVER_ERROR
+    );
+  },
+  /**
+   * Throws an error when image processing job is not found
+   */
+  throwImageProcessingJobNotFoundError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.NOT_FOUND,
+      "Image processing job not found",
+      API_ERROR_CODES.RESOURCE_NOT_FOUND
+    );
+  },
+  /**
+   * Throws an error when image processing job is already in progress
+   *  */
+  throwImageProcessingJobInProgressError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.CONFLICT,
+      "Image processing job is already in progress",
+      API_ERROR_CODES.RESOURCE_EXISTS
+    );
+  },
+  /**
+   * Throws an error when image processing job is already completed
+   */
+  throwImageProcessingJobCompletedError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.CONFLICT,
+      "Image processing job is already completed",
+      API_ERROR_CODES.RESOURCE_EXISTS
+    );
+  },
+  /**
+   * Throws an error when image processing job is not in progress
+   */
+  throwImageProcessingJobNotInProgressError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.BAD_REQUEST,
+      "Image processing job is not in progress",
+      API_ERROR_CODES.INVALID_PARAMETERS
+    );
+  },
+  /**
+   * Throws an error when image processing job is not completed
+   */
+  throwImageProcessingJobNotCompletedError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.BAD_REQUEST,
+      "Image processing job is not completed",
+      API_ERROR_CODES.INVALID_PARAMETERS
+    );
+  },
+  /**
+   * Throws an error when image processing job is already failed
+   */
+  throwImageProcessingJobFailedError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.BAD_REQUEST,
+      "Image processing job has already failed",
+      API_ERROR_CODES.INVALID_PARAMETERS
+    );
+  },
+};
+
 export default FolderExceptions;

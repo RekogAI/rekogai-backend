@@ -10,6 +10,11 @@ const User = sequelize.define(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    collectionId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "Rekognition collection ID for the user",
+    },
     email: {
       type: DataTypes.STRING,
       allowNull: false,

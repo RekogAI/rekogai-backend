@@ -23,7 +23,7 @@ export const createAlbumsRoute = asyncHandler(async (req, res) => {
   return handleApiResponse(res, apiResponse);
 });
 
-export const startImageProcessingJob = asyncHandler(async (req, res) => {
+export const startImageProcessingJobRoute = asyncHandler(async (req, res) => {
   const apiResponse = await rekognitionInstance.startImageProcessingJob(
     req.body
   );

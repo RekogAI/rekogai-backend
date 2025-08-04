@@ -12,7 +12,6 @@ import Logger from "../lib/Logger.js";
 import UserModel from "./UserModel.js";
 import { setCookies } from "../utility/index.js";
 import configObj from "../config.js";
-import RekognitionModel from "./RekognitionModel.js";
 const { config, ENVIRONMENT, AWS_REGION } = configObj;
 import models from "../models/schemas/associations.js";
 import S3Model from "./S3Model.js";
@@ -26,7 +25,12 @@ import {
 const { User } = models;
 import TokenModel from "./TokenModel.js";
 import bcrypt from "bcrypt";
-import { SIGN_UP_METHODS, TOKEN_TYPE, getMinutes } from "../utility/constants.js";
+import {
+  SIGN_UP_METHODS,
+  TOKEN_TYPE,
+  getMinutes,
+} from "../utility/constants.js";
+import RekognitionModel from "../models/RekognitionModel.js";
 
 /**
  * Class for handling authentication operations using AWS Cognito
@@ -239,11 +243,20 @@ class CognitoModel {
       const userExists = await this.userModel.getUserByUsername(username);
 
       if (!userExists) {
-        Logger.warn("User confirmed in Cognito but not found in database");
+        throwApiError(
+          API_ERROR_STATUS_CODES.NOT_FOUND,
+          API_ERROR_MESSAGES.USER_NOT_FOUND,
+          API_ERROR_CODES.USER_NOT_FOUND
+        );
       }
 
+      // create collection for the user
+      const collectionId = await RekognitionModel.createCollection();
+
+      
+
       const [emailVerified] = await User.update(
-        { isEmailVerified: true },
+        { isEmailVerified: true, collectionId },
         { where: { email: username } }
       );
 
@@ -498,6 +511,12 @@ class CognitoModel {
 
   // Check if token is about to expire (within 5 minutes)
   isTokenNearExpiry(token, generatedAt, expiryInMinutes) {
+    console.log(
+      "🚀 ~ CognitoModel ~ isTokenNearExpiry ~ token, generatedAt, expiryInMinutes:",
+      token,
+      generatedAt,
+      expiryInMinutes
+    );
     if (!token || !generatedAt || !expiryInMinutes) {
       return true;
     }
@@ -506,6 +525,10 @@ class CognitoModel {
     const expiryTimeMs = expiryInMinutes * 60 * 1000;
     const currentTime = Date.now();
     const timeToExpiryMs = tokenGeneratedTime + expiryTimeMs - currentTime;
+    console.log(
+      "🚀 ~ CognitoModel ~ isTokenNearExpiry ~ timeToExpiryMs:",
+      timeToExpiryMs
+    );
 
     // Return true if token will expire within 5 minutes
     return timeToExpiryMs < 5 * 60 * 1000;

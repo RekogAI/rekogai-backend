@@ -14,6 +14,7 @@ import bodyParser from "body-parser";
 import {
   createAlbumsRoute,
   generatePreSignedURLRoute,
+  startImageProcessingJobRoute,
 } from "../controllers/s3Controller/index.js";
 
 import {
@@ -84,6 +85,11 @@ const createRouter = () => {
 
   // Rekognition
   router.post("/create-albums", sessionMiddleware, createAlbumsRoute);
+  router.post(
+    "/feature/facial-rekognition/start",
+    sessionMiddleware,
+    startImageProcessingJobRoute
+  );
 
   // images
   router.get("/fetch-uploaded-images", fetchUploadedImagesRoute);

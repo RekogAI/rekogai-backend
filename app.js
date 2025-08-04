@@ -44,7 +44,7 @@ if (ENVIRONMENT === "development") {
       console.log("Database connection established.");
 
       // Simpler sync approach
-      await sequelize.sync({ force: false });
+      await sequelize.sync({ force: false, alter: true });
 
       console.log("Database synced successfully.");
 

@@ -21,8 +21,9 @@ import {
   API_ERROR_MESSAGES,
   API_ERROR_STATUS_CODES,
 } from "../utility/constants.error.js";
+import { RekognitionExceptions } from "./exceptions.js";
 
-const { Face, Album, Image, APIResponse } = models;
+const { Face, Album, Image, APIResponse, User } = models;
 
 const { config, ENVIRONMENT } = configObj;
 
@@ -40,7 +41,7 @@ const createCollection = async () => {
     });
     const response = await rekognitionClient.send(command);
     console.log("Face collection created:", response);
-    return { collectionId };
+    return collectionId;
   } catch (error) {
     if (error.name === "ResourceAlreadyExistsException") {
       return "Collection already exists.";
@@ -92,18 +93,6 @@ const storeIndexedFaces = async ({ response, collectionId, imageId }) => {
       faceId: faceRecord.Face.FaceId,
       imageId,
       collectionId: collectionId,
-      facePopularityScore: 1,
-      ageRange: faceRecord.FaceDetail.AgeRange,
-      gender: faceRecord.FaceDetail.Gender.Value,
-      confidence: faceRecord.FaceDetail.Confidence,
-      emotions: faceRecord.FaceDetail.Emotions,
-      beard: faceRecord.FaceDetail.Beard,
-      mustache: faceRecord.FaceDetail.Mustache,
-      occluded: faceRecord.FaceDetail.Occluded,
-      imageQuality: faceRecord.FaceDetail.Quality,
-      smile: faceRecord.FaceDetail.Smile,
-      sunglasses: faceRecord.FaceDetail.Sunglasses,
-      pose: faceRecord.FaceDetail.Pose,
       faceRecordDetails: faceRecord,
     }));
 
@@ -201,7 +190,34 @@ const groupFacesIntoAlbums = async ({ bucketName, collectionId }) => {
   }
 };
 
-const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
+const getCollectionId = async (userId) => {
+  try {
+    const faceCollectionId = await User.findOne({
+      where: { userId },
+      attributes: ["collectionId"],
+    });
+
+    if (!faceCollectionId) {
+      RekognitionExceptions.throwCollectionNotFoundError();
+    }
+    console.log("Face collection ID retrieved:", faceCollectionId);
+    return faceCollectionId.collectionId;
+  } catch (error) {
+    console.error("Error retrieving face collection ID:", error);
+    RekognitionExceptions.throwInvalidParametersError();
+  }
+};
+
+const startImageProcessingJob = async ({ userId, folderId }) => {
+  if (!userId || !folderId) {
+    RekognitionExceptions.throwInvalidParametersError();
+  }
+
+  let pageNumber = 0;
+  const pageSize = 50;
+
+  const collectionId = await getCollectionId(userId);
+
   // Fetch images from database with size limit = 50
   const fetchImagesFromDatabase = async ({
     userId,
@@ -216,7 +232,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
         where: {
           userId,
           folderId,
-          fileStatus: IMAGE_STATUS.UPLOADED_TO_S3,
+          // fileStatus: IMAGE_STATUS.UPLOAD_COMPLETED, // Uncomment if you want to filter by file status
         },
         limit,
         offset,
@@ -333,68 +349,8 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
           : "No labels detected in include categories."
       );
 
-      // Function to check if image quality is sufficient for facial recognition
-      const isImageQualitySufficient = (response) => {
-        const imageProperties = response.ImageProperties;
-
-        // Check overall image quality
-        const overallQuality = imageProperties.Quality;
-        if (
-          !isQualityInRange(overallQuality, {
-            brightnessMin: 40,
-            brightnessMax: 80,
-            contrastMin: 30,
-            contrastMax: 70,
-            sharpnessMin: 50,
-          })
-        ) {
-          return false;
-        }
-
-        // Check foreground quality (stricter for faces)
-        const foregroundQuality = imageProperties.Foreground.Quality;
-        if (
-          !isQualityInRange(foregroundQuality, {
-            brightnessMin: 45,
-            brightnessMax: 75,
-            contrastMin: 35,
-            contrastMax: 65,
-            sharpnessMin: 60,
-          })
-        ) {
-          return false;
-        }
-        return true;
-      };
-
-      const isQualityInRange = (quality, thresholds) => {
-        const {
-          brightnessMin,
-          brightnessMax,
-          contrastMin,
-          contrastMax,
-          sharpnessMin,
-        } = thresholds;
-        return (
-          quality.Brightness >= brightnessMin &&
-          quality.Brightness <= brightnessMax &&
-          quality.Contrast >= contrastMin &&
-          quality.Contrast <= contrastMax &&
-          quality.Sharpness >= sharpnessMin
-        );
-      };
-
-      const isSuitable = isImageQualitySufficient(response);
-      console.log(
-        isSuitable
-          ? "Image quality is sufficient for facial recognition."
-          : "Image quality is insufficient."
-      );
-
       return {
-        isImageQualityOk: isSuitable,
         hasFaces: hasLabelsInIncludeCategories,
-        facesCount: numberOfLabelsInIncludeCategories,
       };
     } catch (error) {
       console.error("Error detecting faces:", error);
@@ -406,17 +362,14 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
     const filteredImages = [];
     let updatePromises = [];
     for (const image of images) {
-      const { hasFaces, facesCount, isImageQualityOk } =
-        await detectLabelsForAnnotation(image);
-      if (hasFaces && facesCount > 0 && isImageQualityOk) {
+      const { hasFaces } = await detectLabelsForAnnotation(image);
+      if (hasFaces) {
         filteredImages.push(image);
         updatePromises.push(
           Image.update(
             {
               fileStatus: IMAGE_STATUS.FACES_DETECTED,
               facesDetected: true,
-              facesDetectedCount: facesCount,
-              isImageQualityOk,
             },
             { where: { imageId: image.imageId } }
           )
@@ -427,7 +380,6 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
             {
               fileStatus: IMAGE_STATUS.NO_FACES_DETECTED,
               facesDetected: false,
-              isImageQualityOk,
             },
             { where: { imageId: image.imageId } }
           )
@@ -508,7 +460,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
       const albumsToCreate = Object.keys(faceIdToImageIdsMap).map((faceId) => ({
         userId,
         faceId,
-        imageIds: JSON.stringify(faceIdToImageIdsMap[faceId]),
+        imageIds: faceIdToImageIdsMap[faceId],
       }));
       await Album.bulkCreate(albumsToCreate);
       console.log("All albums created successfully.");
@@ -525,8 +477,6 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
     pageNumber,
   });
 
-  let pageNumber = 0;
-  const pageSize = 50;
   while (images.length > 0) {
     console.log(" startImageProcessingJob pageNumber", pageNumber);
     const s3KeysArray = createImageBatch(images);
@@ -625,7 +575,7 @@ const startImageProcessingJob = async ({ userId, folderId, collectionId }) => {
     }
   };
 
-  await createThumbnailsForFaces();
+  // await createThumbnailsForFaces();
   return { message: "Image processing job completed" };
 };
 

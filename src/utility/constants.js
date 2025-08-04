@@ -3,7 +3,6 @@ export const TABLE_NAME = {
   IMAGES: "images",
   FACES: "faces",
   ALBUMS: "albums",
-  COLLECTIONS: "collections",
   FOLDERS: "folders",
   THUMBNAILS: "thumbnails",
   API_RESPONSES: "api_responses",
@@ -18,6 +17,7 @@ export const IMAGE_STATUS = {
   FACES_DETECTED: "FACES_DETECTED",
   NO_FACES_DETECTED: "NO_FACES_DETECTED",
   FACES_INDEXED: "FACES_INDEXED",
+  UPLOAD_COMPLETED: "UPLOAD_COMPLETED",
 };
 
 export const PRESIGNED_URL_EXPIRES_IN = {
