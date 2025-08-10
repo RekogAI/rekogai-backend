@@ -15,6 +15,7 @@ import {
   createAlbumsRoute,
   generatePreSignedURLRoute,
   startImageProcessingJobRoute,
+  getJobStatusRoute,
 } from "../controllers/s3Controller/index.js";
 
 import {
@@ -90,6 +91,9 @@ const createRouter = () => {
     sessionMiddleware,
     startImageProcessingJobRoute
   );
+
+  // Job status monitoring
+  router.get("/job-status/:jobId", sessionMiddleware, getJobStatusRoute);
 
   // images
   router.get("/fetch-uploaded-images", fetchUploadedImagesRoute);

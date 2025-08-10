@@ -23,5 +23,34 @@ services:
       - PASSWORD_PEPPER=${PASSWORD_PEPPER}
       - SALT_ROUNDS=${SALT_ROUNDS}
       - PORT=8080
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PREFIX=${REDIS_PREFIX}
     env_file:
       - .env
+
+  redis:
+    image: redis:7-alpine
+    container_name: rekogai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: rekogai-redis-ui
+    hostname: redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  redis_data:

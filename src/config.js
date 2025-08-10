@@ -43,6 +43,9 @@ const config = {
     PASSWORD_PEPPER: process.env.PASSWORD_PEPPER,
     SALT_ROUNDS: process.env.SALT_ROUNDS,
     S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
+    REDIS_HOST: process.env.REDIS_HOST || "localhost",
+    REDIS_PORT: process.env.REDIS_PORT || 6379,
+    REDIS_PASSWORD: process.env.REDIS_PASSWORD,
   },
   production: {
     POSTGRES_CONFIG: {
@@ -77,6 +80,9 @@ const config = {
     PASSWORD_PEPPER: process.env.PASSWORD_PEPPER,
     SALT_ROUNDS: process.env.SALT_ROUNDS,
     S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
+    REDIS_HOST: process.env.REDIS_HOST || "localhost",
+    REDIS_PORT: process.env.REDIS_PORT || 6379,
+    REDIS_PASSWORD: process.env.REDIS_PASSWORD,
   },
 };
 
