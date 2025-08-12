@@ -24,6 +24,11 @@ const Face = sequelize.define(
       type: DataTypes.UUID,
       allowNull: false,
     },
+    faceThumbnail: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "Face thumbnail URL",
+    },
     facePopularityScore: {
       type: DataTypes.INTEGER,
       defaultValue: 0,

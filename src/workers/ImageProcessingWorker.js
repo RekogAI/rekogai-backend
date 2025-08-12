@@ -105,7 +105,10 @@ class ImageProcessingWorker {
 
       // Get collection ID
       const collectionId = await this.getCollectionId(userId);
-      console.log('🚀 ~ ImageProcessingWorker ~ processJob ~ collectionId:', collectionId);
+      console.log(
+        "🚀 ~ ImageProcessingWorker ~ processJob ~ collectionId:",
+        collectionId
+      );
 
       // Process images in batches
       let pageNumber = 0;
@@ -121,7 +124,10 @@ class ImageProcessingWorker {
           fileStatus: IMAGE_STATUS.UPLOAD_COMPLETED,
         },
       });
-      console.log('🚀 ~ ImageProcessingWorker ~ processJob ~ totalCount:', totalCount);
+      console.log(
+        "🚀 ~ ImageProcessingWorker ~ processJob ~ totalCount:",
+        totalCount
+      );
 
       while (true) {
         const images = await this.fetchImagesFromDatabase({
@@ -130,7 +136,10 @@ class ImageProcessingWorker {
           pageSize,
           pageNumber,
         });
-        console.log('🚀 ~ ImageProcessingWorker ~ processJob ~ images:', images);
+        console.log(
+          "🚀 ~ ImageProcessingWorker ~ processJob ~ images:",
+          images
+        );
 
         if (images.length === 0) {
           break;
@@ -183,7 +192,10 @@ class ImageProcessingWorker {
   async processBatch(images, collectionId, userId, job) {
     // Filter images with faces
     const imagesWithFaces = await this.filterImagesWithFaces(images, userId);
-    console.log('🚀 ~ ImageProcessingWorker ~ processBatch ~ imagesWithFaces:', imagesWithFaces);
+    console.log(
+      "🚀 ~ ImageProcessingWorker ~ processBatch ~ imagesWithFaces:",
+      imagesWithFaces
+    );
 
     if (imagesWithFaces.length === 0) {
       return;
@@ -204,7 +216,10 @@ class ImageProcessingWorker {
       collectionId,
       userId
     );
-    console.log('🚀 ~ ImageProcessingWorker ~ processBatch ~ faceIdToImageIdsMap:', faceIdToImageIdsMap);
+    console.log(
+      "🚀 ~ ImageProcessingWorker ~ processBatch ~ faceIdToImageIdsMap:",
+      faceIdToImageIdsMap
+    );
 
     // Publish face indexing update
     await NotificationService.publishFaceIndexingUpdate({
@@ -497,5 +512,4 @@ class ImageProcessingWorker {
 
 console.log("ImageProcessingWorker module loaded");
 
-const imageProcessingWorker = new ImageProcessingWorker();
-export default imageProcessingWorker;
+export default ImageProcessingWorker;

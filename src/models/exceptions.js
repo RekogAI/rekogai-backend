@@ -249,4 +249,38 @@ export const RekognitionExceptions = {
   },
 };
 
+export const AlbumExceptions = {
+  /**
+   * Throws an error when required parameters are missing
+   */
+  throwInvalidParametersError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.BAD_REQUEST,
+      API_ERROR_MESSAGES.INVALID_PARAMETERS,
+      API_ERROR_CODES.INVALID_PARAMETERS
+    );
+  },
+
+  /**
+   * Throws an error when album is not found
+   */
+  throwAlbumNotFoundError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.NOT_FOUND,
+      "Album not found",
+      API_ERROR_CODES.RESOURCE_NOT_FOUND
+    );
+  },
+
+  /**
+   * Throws an error when album already exists
+   */
+  throwAlbumAlreadyExistsError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.CONFLICT,
+      "Album with this name already exists",
+      API_ERROR_CODES.RESOURCE_EXISTS
+    );
+  },
+};
 export default FolderExceptions;

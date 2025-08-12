@@ -1,19 +1,40 @@
 #!/usr/bin/env node
 
+/**
+ * Module dependencies.
+ */
+
+import { app } from "../app.js";
+import debug from "debug";
 import http from "http";
-import debugModule from "debug";
-import dotenv from "dotenv";
-import { app } from "../app.js"; // Ensure the app file exports `app` correctly
+import WebSocketService from "../src/services/WebSocketService.js";
+import ImageProcessingWorker from "../src/workers/ImageProcessingWorker.js";
+import Logger from "../src/lib/Logger.js";
+import { redis } from "../src/config/redis.js";
 
-dotenv.config(); // Load environment variables
+const debugLog = debug("rekogai-backend:server");
 
-const debug = debugModule("express-starter-app:server");
+/**
+ * Check Redis connection before starting server
+ */
+async function checkRedisConnection() {
+  try {
+    await redis.ping();
+    console.log("Redis connection successful from www");
+  } catch (error) {
+    console.log("Redis connection failed:", error);
+    console.log(
+      "Please ensure Redis is running. Use 'npm run redis:start' to start Redis with Docker"
+    );
+    process.exit(1);
+  }
+}
 
 /**
  * Get port from environment and store in Express.
  */
 
-const port = normalizePort(process.env.PORT);
+const port = normalizePort(process.env.PORT || "3000");
 app.set("port", port);
 
 /**
@@ -23,12 +44,48 @@ app.set("port", port);
 const server = http.createServer(app);
 
 /**
- * Listen on provided port, on all network interfaces.
+ * Initialize services after Redis check
  */
+async function initializeServices() {
+  try {
+    // Check Redis connection first
+    await checkRedisConnection();
 
-server.listen(port, () => console.log("Server started on port:", port));
-server.on("error", onError);
-server.on("listening", onListening);
+    // Initialize WebSocket service
+    WebSocketService.initialize(server);
+
+    // Initialize workers
+    const imageProcessingWorker = new ImageProcessingWorker();
+    console.log("Image processing worker initialized");
+
+    // Store worker reference for cleanup
+    app.set("imageProcessingWorker", imageProcessingWorker);
+  } catch (error) {
+    Logger.error("Failed to initialize services:", error);
+    process.exit(1);
+  }
+}
+
+/**
+ * Start server after services are initialized
+ */
+async function startServer() {
+  try {
+    // Initialize services first
+    await initializeServices();
+
+    // Then start listening
+    server.listen(port);
+    server.on("error", onError);
+    server.on("listening", onListening);
+  } catch (error) {
+    Logger.error("Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+// Start server
+startServer();
 
 /**
  * Normalize a port into a number, string, or false.
@@ -83,5 +140,42 @@ function onError(error) {
 function onListening() {
   const addr = server.address();
   const bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
-  debug("Listening on " + bind);
+  debugLog("Listening on " + bind);
+  Logger.info(`Server started on ${bind}`);
 }
+
+// Graceful shutdown
+async function gracefulShutdown(signal) {
+  Logger.info(`${signal} received, shutting down gracefully`);
+
+  try {
+    // Close server
+    server.close(async () => {
+      // Close worker
+      const worker = app.get("imageProcessingWorker");
+      if (worker && worker.worker) {
+        await worker.worker.close();
+        Logger.info("Worker closed");
+      }
+
+      // Close Redis connections
+      await redis.quit();
+      Logger.info("Redis connections closed");
+
+      Logger.info("Process terminated gracefully");
+      process.exit(0);
+    });
+
+    // Force exit after 10 seconds
+    setTimeout(() => {
+      Logger.error("Forced shutdown after timeout");
+      process.exit(1);
+    }, 10000);
+  } catch (error) {
+    Logger.error("Error during shutdown:", error);
+    process.exit(1);
+  }
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
