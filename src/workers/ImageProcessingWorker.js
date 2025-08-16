@@ -12,6 +12,8 @@ import {
   IndexFacesCommand,
 } from "@aws-sdk/client-rekognition";
 import configObj from "../config.js";
+import QueueService from "../services/QueueService.js";
+import { Op } from "sequelize";
 
 const { Image, User, Face, Album, APIResponse } = models;
 const { config, ENVIRONMENT } = configObj;
@@ -24,15 +26,9 @@ class ImageProcessingWorker {
   constructor() {
     console.log("ImageProcessingWorker constructor called");
 
-    redis.ping().then(
-      () => console.log("✅ Redis connection successful"),
-      (err) => console.error("❌ Redis connection failed:", err)
-    );
-
     try {
       this.worker = new Worker(
         QUEUE_NAMES.IMAGE_PROCESSING,
-        // Try using an arrow function instead of bind
         async (job) => {
           console.log("Arrow function worker received job:", job.id);
           return this.processJob(job);
@@ -64,7 +60,7 @@ class ImageProcessingWorker {
     });
 
     this.worker.on("completed", (job) => {
-      Logger.info(`Job completed: ${job.id}`);
+      console.log(`Job completed: ${job.id}`);
       console.log(`Job completed: ${job.id}`);
     });
 
@@ -92,8 +88,6 @@ class ImageProcessingWorker {
     const { userId, folderId } = job.data;
 
     try {
-      // Publish job started
-
       await NotificationService.publishJobProgress({
         jobId: job.id,
         userId,
@@ -103,25 +97,27 @@ class ImageProcessingWorker {
         message: "Starting image processing...",
       });
 
-      // Get collection ID
       const collectionId = await this.getCollectionId(userId);
       console.log(
         "🚀 ~ ImageProcessingWorker ~ processJob ~ collectionId:",
         collectionId
       );
 
-      // Process images in batches
       let pageNumber = 0;
-      const pageSize = 20;
+      const pageSize = 50;
       let totalProcessed = 0;
       let totalImages = 0;
 
-      // First, count total images
       const totalCount = await Image.count({
         where: {
           userId,
           folderId,
-          fileStatus: IMAGE_STATUS.UPLOAD_COMPLETED,
+          fileStatus: {
+            [Op.notIn]: [
+              IMAGE_STATUS.FACES_DETECTED,
+              IMAGE_STATUS.NO_FACES_DETECTED,
+            ],
+          },
         },
       });
       console.log(
@@ -147,17 +143,14 @@ class ImageProcessingWorker {
 
         totalImages += images.length;
 
-        // Update progress
         const progress = Math.round((totalProcessed / totalCount) * 100);
         await job.updateProgress(progress);
 
-        // Process batch
         await this.processBatch(images, collectionId, userId, job);
 
         totalProcessed += images.length;
         pageNumber++;
 
-        // Publish progress update
         await NotificationService.publishJobProgress({
           jobId: job.id,
           userId,
@@ -170,7 +163,6 @@ class ImageProcessingWorker {
         });
       }
 
-      // Job completed
       await NotificationService.publishJobCompleted({
         jobId: job.id,
         userId,
@@ -190,7 +182,6 @@ class ImageProcessingWorker {
   }
 
   async processBatch(images, collectionId, userId, job) {
-    // Filter images with faces
     const imagesWithFaces = await this.filterImagesWithFaces(images, userId);
     console.log(
       "🚀 ~ ImageProcessingWorker ~ processBatch ~ imagesWithFaces:",
@@ -201,16 +192,6 @@ class ImageProcessingWorker {
       return;
     }
 
-    // Publish face detection update
-    await NotificationService.publishFaceDetectionUpdate({
-      jobId: job.id,
-      userId,
-      completed: false,
-      detectedFaces: imagesWithFaces.length,
-      message: `Detected faces in ${imagesWithFaces.length} images`,
-    });
-
-    // Process face indexing and matching
     const faceIdToImageIdsMap = await this.sendImageBatchToRekognition(
       imagesWithFaces,
       collectionId,
@@ -221,26 +202,7 @@ class ImageProcessingWorker {
       faceIdToImageIdsMap
     );
 
-    // Publish face indexing update
-    await NotificationService.publishFaceIndexingUpdate({
-      jobId: job.id,
-      userId,
-      completed: true,
-      indexedFaces: Object.keys(faceIdToImageIdsMap).length,
-      message: `Indexed ${Object.keys(faceIdToImageIdsMap).length} unique faces`,
-    });
-
-    // Create albums
     await this.createAlbums(faceIdToImageIdsMap, userId);
-
-    // Publish album creation update
-    await NotificationService.publishAlbumCreationUpdate({
-      jobId: job.id,
-      userId,
-      completed: true,
-      albumsCreated: Object.keys(faceIdToImageIdsMap).length,
-      message: `Created ${Object.keys(faceIdToImageIdsMap).length} albums`,
-    });
   }
 
   async getCollectionId(userId) {
@@ -258,7 +220,7 @@ class ImageProcessingWorker {
 
   async fetchImagesFromDatabase({
     userId,
-    limit = 20,
+    limit = 50,
     pageNumber = 0,
     folderId,
   }) {
@@ -268,7 +230,12 @@ class ImageProcessingWorker {
       where: {
         userId,
         folderId,
-        fileStatus: IMAGE_STATUS.UPLOAD_COMPLETED,
+        fileStatus: {
+          [Op.notIn]: [
+            IMAGE_STATUS.FACES_DETECTED,
+            IMAGE_STATUS.NO_FACES_DETECTED,
+          ],
+        },
       },
       limit,
       offset,
@@ -292,7 +259,12 @@ class ImageProcessingWorker {
               facesDetected: true,
             },
             { where: { imageId: image.imageId } }
-          )
+          ),
+          QueueService.addThumbnailGenerationJob({
+            userId,
+            imageId: image.imageId,
+            folderId: image.folderId,
+          })
         );
       } else {
         updatePromises.push(
@@ -302,7 +274,12 @@ class ImageProcessingWorker {
               facesDetected: false,
             },
             { where: { imageId: image.imageId } }
-          )
+          ),
+          QueueService.addThumbnailGenerationJob({
+            userId,
+            imageId: image.imageId,
+            folderId: image.folderId,
+          })
         );
       }
     }
@@ -363,7 +340,6 @@ class ImageProcessingWorker {
 
       const response = await rekognitionClient.send(detectLabelsCommand);
 
-      // Store API response
       await APIResponse.create({
         userId,
         imageId: image.imageId,
@@ -392,14 +368,12 @@ class ImageProcessingWorker {
     for (const image of imageBatch) {
       const { fileLocationInS3, imageId } = image;
 
-      // Search for faces by image
       const searchResponse = await this.searchFacesByImage({
         bucketName: config[ENVIRONMENT].S3_BUCKET_NAME,
         key: fileLocationInS3,
         collectionId,
       });
 
-      // Store search response
       await APIResponse.create({
         userId,
         imageId,
@@ -416,15 +390,14 @@ class ImageProcessingWorker {
           faceIdToImageIdsMap[faceId].push(imageId);
         });
       } else {
-        // If no match, index the faces
         const indexResponse = await this.indexFaces({
           bucketName: config[ENVIRONMENT].S3_BUCKET_NAME,
           key: fileLocationInS3,
           collectionId,
           imageId,
+          userId,
         });
 
-        // Store index response
         await APIResponse.create({
           userId,
           imageId,
@@ -463,7 +436,7 @@ class ImageProcessingWorker {
     }
   }
 
-  async indexFaces({ bucketName, key, collectionId, imageId }) {
+  async indexFaces({ bucketName, key, collectionId, imageId, userId }) {
     try {
       const command = new IndexFacesCommand({
         CollectionId: collectionId,
@@ -473,7 +446,6 @@ class ImageProcessingWorker {
       });
       const response = await rekognitionClient.send(command);
 
-      // Store indexed faces
       const faceRecordsToCreate = response.FaceRecords.map((faceRecord) => ({
         faceId: faceRecord.Face.FaceId,
         imageId,
@@ -483,6 +455,20 @@ class ImageProcessingWorker {
 
       await Face.bulkCreate(faceRecordsToCreate);
 
+      // Queue face thumbnail generation for each detected face
+      const faceThumbnailJobs = response.FaceRecords.map((faceRecord) => {
+        const boundingBox = faceRecord.Face.BoundingBox;
+        return QueueService.addFaceThumbnailGenerationJob({
+          faceId: faceRecord.Face.FaceId,
+          imageId,
+          userId,
+          s3Key: key,
+          boundingBox,
+        });
+      });
+
+      await Promise.all(faceThumbnailJobs);
+
       return response;
     } catch (error) {
       Logger.error("Error indexing faces:", error);
@@ -491,7 +477,7 @@ class ImageProcessingWorker {
   }
 
   async createAlbums(faceIdToImageIdsMap, userId) {
-    Logger.info(
+    console.log(
       "🚀 ~ ImageProcessingWorker ~ createAlbums ~ faceIdToImageIdsMap:",
       faceIdToImageIdsMap
     );
@@ -502,7 +488,7 @@ class ImageProcessingWorker {
         imageIds: faceIdToImageIdsMap[faceId],
       }));
       await Album.bulkCreate(albumsToCreate);
-      Logger.info("Albums created successfully");
+      console.log("Albums created successfully");
     } catch (error) {
       Logger.error("Error creating albums:", error);
       throw error;

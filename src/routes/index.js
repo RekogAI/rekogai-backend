@@ -21,6 +21,7 @@ import {
 import {
   createFolderRoute,
   deleteFolderRoute,
+  fetchAlbumsRoute,
   fetchFolderContentRoute,
   getFolderContentsRoute,
   getFolderRoute,
@@ -100,6 +101,9 @@ const createRouter = () => {
 
   // Fetch folder content
   router.get("/fetch-folder-content", fetchFolderContentRoute);
+
+  // Albums API's
+  router.get("/fetch-albums", fetchAlbumsRoute);
 
   return router;
 };

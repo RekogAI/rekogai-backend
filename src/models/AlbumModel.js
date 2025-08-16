@@ -9,12 +9,6 @@ class AlbumModel {
     this.Album = models.Album;
   }
 
-  /**
-   * Fetch all albums for a user
-   * @param {Object} params - Query parameters
-   * @param {string} params.userId - User ID
-   * @returns {Promise<Array>} List of user albums
-   */
   async fetchAlbums({ userId }) {
     try {
       // Validate inputs
@@ -30,12 +24,14 @@ class AlbumModel {
         include: [
           {
             model: models.Face,
-            as: "faces",
+            as: "face",
             attributes: [
               "faceId",
               "imageId",
               "faceRecordDetails",
               "faceThumbnail",
+              "faceThumbnailS3Key",
+              "faceThumbnailId",
             ],
             required: true,
           },
@@ -44,9 +40,25 @@ class AlbumModel {
         nest: true,
       });
 
+      const albumsWithPresignedUrls = await Promise.all(
+        albums.map(async (album) => {
+          const albumData = album.toJSON();
+
+          if (albumData.face && albumData.face.faceThumbnailS3Key) {
+            albumData.face.faceThumbnailUrl = await generatePresignedUrl({
+              operation: "get",
+              key: albumData.face.faceThumbnailS3Key,
+              expiresIn: 86400, // 24 hours
+            });
+          }
+
+          return albumData;
+        })
+      );
+
       Logger.info(`Retrieved ${albums.length} albums for user ${userId}`);
 
-      return albums;
+      return albumsWithPresignedUrls;
     } catch (error) {
       Logger.error("Error fetching albums:", error);
       throw error;
@@ -69,7 +81,7 @@ class AlbumModel {
         include: [
           {
             model: models.Face,
-            as: "faces",
+            as: "face",
             attributes: [
               "faceId",
               "imageId",

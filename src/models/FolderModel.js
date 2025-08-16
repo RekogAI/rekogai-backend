@@ -13,13 +13,6 @@ class FolderModel {
     this.ImageModel = new ImageModel();
   }
 
-  /**
-   * Create a root folder for a user
-   * @param {Object} folderData - Root folder data
-   * @param {string} folderData.userId - User ID
-   * @param {string} folderData.folderName - Root folder name (default: "My Files")
-   * @returns {Promise<Object>} Created root folder
-   */
   async createRootFolder({ userId, folderName = "My Files" }) {
     try {
       if (!userId) {
@@ -58,11 +51,6 @@ class FolderModel {
     }
   }
 
-  /**
-   * Get user's root folder
-   * @param {string} userId - User ID
-   * @returns {Promise<Object>} Root folder
-   */
   async getRootFolder(userId) {
     try {
       if (!userId) {
@@ -88,14 +76,6 @@ class FolderModel {
     }
   }
 
-  /**
-   * Create a new folder
-   * @param {Object} folderData - Folder data
-   * @param {string} folderData.userId - User ID
-   * @param {string} folderData.folderName - Folder name
-   * @param {string} folderData.parentFolderId - Parent folder ID (optional, defaults to root)
-   * @returns {Promise<Object>} Created folder
-   */
   async createFolder({ userId, folderName, parentFolderId = null }) {
     console.log(
       "🚀 ~ FolderModel ~ createFolder ~ parentFolderId:",
@@ -174,13 +154,6 @@ class FolderModel {
     }
   }
 
-  /**
-   * Update folder name
-   * @param {string} userId - User ID
-   * @param {string} folderId - Folder ID to update
-   * @param {string} newFolderName - New folder name
-   * @returns {Promise<Object>} Updated folder
-   */
   async updateFolderName({ userId, folderId, newFolderName }) {
     try {
       // Validate inputs
@@ -270,13 +243,6 @@ class FolderModel {
     }
   }
 
-  /**
-   * Update paths of child folders when a parent folder name changes
-   * @param {string} oldParentPath - Old parent folder path
-   * @param {string} newParentPath - New parent folder path
-   * @param {string} userId - User ID
-   * @private
-   */
   async updateChildFolderPaths(oldParentPath, newParentPath, userId) {
     try {
       // Find all child folders that have paths starting with the old parent path
@@ -304,13 +270,6 @@ class FolderModel {
     }
   }
 
-  /**
-   * Delete a folder (soft delete)
-   * @param {Object} params - Delete parameters
-   * @param {string} params.userId - User ID
-   * @param {string} params.folderId - Folder ID to delete
-   * @returns {Promise<Object>} Deletion result
-   */
   async deleteFolder({ userId, folderId }) {
     try {
       // Validate inputs
@@ -360,12 +319,6 @@ class FolderModel {
     }
   }
 
-  /**
-   * Delete all child folders of a parent folder
-   * @param {string} parentFolderPath - Parent folder path
-   * @param {string} userId - User ID
-   * @private
-   */
   async deleteChildFolders(parentFolderPath, userId) {
     try {
       // Find and update all child folders
@@ -387,15 +340,6 @@ class FolderModel {
     }
   }
 
-  /**
-   * Get all folders for a user
-   * @param {Object} params - Query parameters
-   * @param {string} params.userId - User ID
-   * @param {string} [params.folderName] - Filter folders by name (optional)
-   * @param {string} [params.sortBy='createdAt'] - Sort by field (createdAt, folderName, totalItems, totalSize)
-   * @param {string} [params.sortOrder='ASC'] - Sort order (ASC or DESC)
-   * @returns {Promise<Array>} List of folders
-   */
   async getAllFolders({
     userId,
     folderName,
@@ -494,7 +438,7 @@ class FolderModel {
   }
 
   async generatePresignedURLsForFolderImages(images, userId) {
-    console.log(
+    Logger.info(
       "🚀 ~ FolderModel ~ generatePresignedURLsForFolderImages ~ images:",
       images
     );
@@ -506,7 +450,7 @@ class FolderModel {
       }
 
       const imagePromises = images.map(async (image) => {
-        const s3Key = image.fileLocationInS3;
+        const s3Key = image.thumbnailS3Key;
         const presignedURL = await generatePresignedUrl({
           operation: "get",
           key: s3Key,
@@ -528,14 +472,7 @@ class FolderModel {
     }
   }
 
-  /**
-   * Get a folder by ID
-   * @param {Object} params - Query parameters
-   * @param {string} params.userId - User ID
-   * @param {string} params.folderId - Folder ID
-   * @returns {Promise<Object>} Folder details
-   **/
-  async getFolderById({ userId, folderId = null }) {
+  async getFolderContent({ userId, folderId = null }) {
     try {
       if (!userId) {
         FolderExceptions.throwInvalidParametersError();
@@ -578,7 +515,7 @@ class FolderModel {
         await this.generatePresignedURLsForFolderImages(folder.images, userId);
 
       console.log(
-        "🚀 ~ FolderModel ~ getFolderById ~ folderImagesWithPresignedURLS:",
+        "🚀 ~ FolderModel ~ getFolderContent ~ folderImagesWithPresignedURLS:",
         folderImagesWithPresignedURLS
       );
 
@@ -594,13 +531,6 @@ class FolderModel {
     }
   }
 
-  /**
-   * Restore a soft-deleted folder
-   * @param {Object} params - Restore parameters
-   * @param {string} params.userId - User ID
-   * @param {string} params.folderId - Folder ID to restore
-   * @returns {Promise<Object>} Restoration result
-   */
   async restoreFolder({ userId, folderId }) {
     try {
       // Validate inputs
@@ -669,21 +599,6 @@ class FolderModel {
     }
   }
 
-  /**
-   * Fetch folder content including subfolders and images
-   * @param {Object} params - Query parameters
-   * @param {string} params.userId - User ID
-   * @param {string} [params.folderId] - Folder ID (optional, if not provided returns root content)
-   * @param {string} [params.folderName] - Filter folders by name (optional)
-   * @param {string} [params.sortBy='createdAt'] - Sort by field (createdAt, folderName, totalItems, totalSize)
-   * @param {string} [params.sortOrder='DESC'] - Sort order (ASC or DESC)
-   * @param {string} [params.filterBy] - Filter images by 'name' or 'tag' (optional)
-   * @param {string} [params.searchParam] - Search string value for images (optional)
-   * @param {string} [params.imageSortBy='newest'] - Sort images by 'alphabetical', 'newest', or 'size'
-   * @param {string} [params.imageSortOrder='desc'] - Image sort order 'asc' or 'desc'
-   * @param {number} [params.page=1] - Page number for images
-   * @returns {Promise<Object>} Combined folder and image data
-   */
   async fetchFolderContent({
     userId,
     folderId = null,
@@ -707,11 +622,11 @@ class FolderModel {
       let imagesResult = null;
 
       if (folderId) {
-        folderData = await this.getFolderById({ userId, folderId });
+        folderData = await this.getFolderContent({ userId, folderId });
       } else {
         const rootFolder = await this.getRootFolder(userId);
 
-        folderData = await this.getFolderById({
+        folderData = await this.getFolderContent({
           userId,
           folderId: rootFolder.folderId,
         });

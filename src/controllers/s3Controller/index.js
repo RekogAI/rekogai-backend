@@ -8,17 +8,6 @@ export const generatePreSignedURLRoute = asyncHandler(async (req, res) => {
   return handleApiResponse(res, apiResponse);
 });
 
-export const savePostUploadImageDetailsRoute = asyncHandler(
-  async (req, res) => {
-    const apiResponse = await S3Model.savePostUploadImageDetails(req.body);
-    return handleApiResponse(
-      res,
-      apiResponse,
-      "Image details saved successfully"
-    );
-  }
-);
-
 export const createAlbumsRoute = asyncHandler(async (req, res) => {
   const apiResponse = await rekognitionInstance.groupFacesIntoAlbums(req.body);
   return handleApiResponse(res, apiResponse);

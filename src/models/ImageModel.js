@@ -4,6 +4,7 @@ import { ImageExceptions } from "./exceptions.js";
 import { generateUUID } from "../utility/index.js";
 import { generatePresignedUrl } from "../utility/s3.js";
 import { Op } from "sequelize";
+import QueueService from "../services/QueueService.js";
 
 class ImageModel {
   constructor() {
@@ -11,16 +12,6 @@ class ImageModel {
     this.Folder = models.Folder;
   }
 
-  /**
-   * Initiate image upload process by creating an image record and generating a presigned URL
-   * @param {Object} imageData - Image data
-   * @param {string} imageData.folderId - Folder ID
-   * @param {string} imageData.fileName - File name
-   * @param {string} imageData.fileType - File type/MIME type
-   * @param {number} imageData.fileSize - File size in bytes
-   * @param {string} imageData.userId - User ID
-   * @returns {Promise<Object>} Image details with presigned URL
-   */
   async initiateImageUpload({
     folderId,
     fileName,
@@ -34,7 +25,7 @@ class ImageModel {
         "50_MB": 52428800,
         "1_MB": 1048576,
       };
-      // Validate input parameters
+
       if (!folderId || !fileName || !fileType || !fileSize || !userId) {
         ImageExceptions.throwInvalidParametersError();
       }
@@ -50,10 +41,8 @@ class ImageModel {
         ImageExceptions.throwFileSizeTooSmallError();
       }
 
-      // Generate S3 object key (path in S3 bucket)
       const s3ObjectKey = `${userId}/${folderId}/${imageId}`;
 
-      // Generate presigned URL for uploading to S3
       const presignedUrl = await generatePresignedUrl({
         operation: "put",
         key: s3ObjectKey,
@@ -62,7 +51,6 @@ class ImageModel {
       });
       console.log("🚀 ~ ImageModel ~ presignedUrl:", presignedUrl);
 
-      // Create image record in database with UPLOADING status
       const image = await this.Image.create({
         userId,
         folderId,
@@ -76,7 +64,6 @@ class ImageModel {
 
       Logger.info(`Initiated upload for image ${imageId} by user ${userId}`);
 
-      // Return image details with presigned URL
       return {
         presignedUrl,
         imageId: image.imageId,
@@ -92,87 +79,119 @@ class ImageModel {
     }
   }
 
-  /**
-   * Confirm image upload completion and generate a download URL
-   * @param {Object} confirmData - Confirmation data
-   * @param {string} confirmData.imageId - Image ID
-   * @param {boolean} confirmData.isUploadComplete - Whether upload completed successfully
-   * @param {string} confirmData.status - New status (UPLOADED, FAILED)
-   * @returns {Promise<Object>} Updated image details with presigned URL for GET
-   */
-  async confirmImageUpload({ imageId, isUploadComplete, status }) {
+  _validateConfirmUploadParams({ imageId, status }) {
+    const errors = [];
+
+    if (!imageId || typeof imageId !== "string") {
+      errors.push("imageId is required and must be a string");
+    }
+
+    if (!status || !["UPLOAD_FAILED", "UPLOAD_COMPLETED"].includes(status)) {
+      errors.push("status must be either UPLOAD_FAILED or UPLOAD_COMPLETED");
+    }
+
+    if (errors.length > 0) {
+      ImageExceptions.throwInvalidParametersError(errors.join(", "));
+    }
+  }
+
+  async _generateImageAccessUrl(s3Key) {
     try {
-      // Validate input parameters
-      if (!imageId || isUploadComplete === undefined || !status) {
-        ImageExceptions.throwInvalidParametersError();
-      }
-
-      // Validate status
-      const validStatuses = ["UPLOAD_FAILED", "UPLOAD_COMPLETED"];
-      if (!validStatuses.includes(status)) {
-        ImageExceptions.throwInvalidImageStatusError();
-      }
-
-      // Find the image record
-      const image = await this.Image.findOne({
-        where: {
-          imageId,
-        },
+      return await generatePresignedUrl({
+        operation: "get",
+        key: s3Key,
+        expiresIn: 86400, // 24 hours
       });
-      Logger.info("🚀 ~ ImageModel ~ confirmImageUpload ~ image:", image);
+    } catch (error) {
+      Logger.error("Failed to generate presigned URL:", error);
+      return null;
+    }
+  }
+
+  async _updateImageStatus(image, status) {
+    try {
+      await image.update({ fileStatus: status });
+      return image;
+    } catch (error) {
+      Logger.error("Failed to update image status:", error);
+      throw error;
+    }
+  }
+
+  async _pushImageToThumbnailQueue(image) {
+    try {
+      await QueueService.addThumbnailGenerationJob({
+        imageId: image.imageId,
+        userId: image.userId,
+        folderId: image.folderId,
+        fileLocationInS3: image.fileLocationInS3,
+        fileName: image.fileName,
+        fileMIMEtype: image.fileMIMEtype,
+      });
+      Logger.info(`Queued thumbnail generation for image ${image.imageId}`);
+    } catch (error) {
+      Logger.error(
+        `Failed to queue thumbnail generation for image ${image.imageId}:`,
+        error
+      );
+    }
+  }
+
+  async confirmImageUpload({ imageId, status }) {
+    try {
+      this._validateConfirmUploadParams({ imageId, status });
+
+      const image = await this.Image.findOne({
+        where: { imageId },
+        attributes: [
+          "imageId",
+          "fileName",
+          "fileMIMEtype",
+          "fileSizeInKiloBytes",
+          "folderId",
+          "userId",
+          "fileStatus",
+          "fileLocationInS3",
+          "createdAt",
+          "updatedAt",
+        ],
+      });
 
       if (!image) {
         ImageExceptions.throwImageNotFoundError();
       }
 
-      if (!isUploadComplete && status === "UPLOAD_FAILED") {
-        Logger.warn(
-          `Upload failed for image ${imageId} - S3 cleanup may be needed`
-        );
-      }
-
-      // Update image status
-      await image.update({
-        fileStatus: status,
-      });
-      console.log("🚀 ~ ImageModel ~ confirmImageUpload ~ image:", image);
+      const updatedImage = await this._updateImageStatus(image, status);
 
       let presignedUrl = null;
+      if (status === "UPLOAD_COMPLETED") {
+        presignedUrl = await this._generateImageAccessUrl(
+          image.fileLocationInS3
+        );
 
-      // Generate presigned URL for downloading if upload was successful
-      if (isUploadComplete && status === "UPLOAD_COMPLETED") {
-        presignedUrl = await generatePresignedUrl({
-          operation: "get",
-          key: image.dataValues.fileLocationInS3,
-          expiresIn: 86400, // 24 hours
-        });
+        await this._pushImageToThumbnailQueue(updatedImage);
       }
 
-      Logger.info(`Image upload ${status} for image ${imageId}`);
+      Logger.info(`Image upload ${status} for image ${imageId}`, {
+        imageId,
+        status,
+        hasPresignedUrl: !!presignedUrl,
+      });
 
-      // Return updated image details with presigned URL
       return {
         presignedUrl,
-        ...image.get({ plain: true }),
+        ...updatedImage.get({ plain: true }),
       };
     } catch (error) {
-      Logger.error("Error confirming image upload:", error);
+      Logger.error("Error confirming image upload:", {
+        error: error.message,
+        imageId,
+        status,
+      });
       throw error;
     }
   }
 
-  /**
-   * Fetch uploaded images with filtering, searching, sorting, and pagination
-   * @param {Object} params - Query parameters
-   * @param {string} params.userId - User ID (required)
-   * @param {string} params.folderId - Folder ID (optional)
-   * @param {string} params.filterBy - Filter by 'name' or 'tag' (optional)
-   * @param {string} params.searchParam - Search string value (optional)
-   * @param {string} params.sortBy - Sort by 'alphabetical', 'newest', or 'size' (optional, default: 'newest')
-   * @param {string} params.sortOrder - Sort order 'asc' or 'desc' (optional, default: 'desc')
-   * @param {number} params.page - Page number (optional, default: 1)
-   * @returns {Promise<Object>} Paginated images with metadata
-   */
   async fetchUploadedImages({
     userId,
     folderId = null,
@@ -182,163 +201,198 @@ class ImageModel {
     sortOrder = "desc",
     page = 1,
   }) {
-    console.log(`🚀 ~ ImageModel ~ userId,`, {
-      userId,
-      folderId,
-      filterBy,
-      searchParam,
-      sortBy,
-      sortOrder,
-      page,
-    });
     try {
       const PAGE_LIMIT = 20;
 
-      // Validate required parameters
-      if (!userId) {
-        ImageExceptions.throwInvalidParametersError();
-      }
+      this._validateFetchParams({ userId, filterBy, sortBy, sortOrder, page });
 
-      // Validate optional parameters
-      const validFilterBy = ["name", "tag"];
-      const validSortBy = ["alphabetical", "newest", "size"];
-      const validSortOrder = ["asc", "desc"];
-
-      if (filterBy && !validFilterBy.includes(filterBy)) {
-        throw new Error('Invalid filterBy parameter. Must be "name" or "tag"');
-      }
-
-      if (!validSortBy.includes(sortBy)) {
-        throw new Error(
-          'Invalid sortBy parameter. Must be "alphabetical", "newest", or "size"'
-        );
-      }
-
-      if (!validSortOrder.includes(sortOrder)) {
-        throw new Error('Invalid sortOrder parameter. Must be "asc" or "desc"');
-      }
-
-      // Build where clause
-      const whereClause = {
+      const { images, count } = await this._fetchImages({
         userId,
-        fileStatus: "UPLOAD_COMPLETED", // Only fetch successfully uploaded images
-      };
-
-      // Add folder filter if provided
-      if (folderId) {
-        whereClause.folderId = folderId;
-      }
-
-      // Add search filter if provided
-      if (filterBy && searchParam) {
-        if (filterBy === "name") {
-          whereClause.fileName = {
-            [Op.like]: `%${searchParam}%`,
-          };
-        } else if (filterBy === "tag") {
-          // Assuming tags are stored in a tags field or related table
-          whereClause.tags = {
-            [Op.like]: `%${searchParam}%`,
-          };
-        }
-      }
-
-      // Build order clause
-      let orderClause = [];
-      switch (sortBy) {
-        case "alphabetical":
-          orderClause = [["fileName", sortOrder.toUpperCase()]];
-          break;
-        case "newest":
-          orderClause = [["createdAt", sortOrder.toUpperCase()]];
-          break;
-        case "size":
-          orderClause = [["fileSizeInKiloBytes", sortOrder.toUpperCase()]];
-          break;
-      }
-
-      // Calculate offset for pagination
-      const offset = (page - 1) * PAGE_LIMIT;
-
-      // Fetch images with pagination
-      const { count, rows: images } = await this.Image.findAndCountAll({
-        where: whereClause,
-        order: orderClause,
+        folderId,
+        filterBy,
+        searchParam,
+        sortBy,
+        sortOrder,
+        page,
         limit: PAGE_LIMIT,
-        offset: offset,
-        attributes: [
-          "imageId",
-          "fileName",
-          "fileMIMEtype",
-          "fileSizeInKiloBytes",
-          "folderId",
-          "userId",
-          "fileStatus",
-          "createdAt",
-          "updatedAt",
-          "fileLocationInS3",
-        ],
       });
 
-      // fetch folder details if needed
-      const folderDetails = await this.Folder.findOne({
-        where: { folderId },
-        raw: true,
-      });
+      console.log("🚀 ~ ImageModel ~ fetchUploadedImages ~ images:", images);
+      const folderDetails = folderId
+        ? await this._getFolderDetails(folderId)
+        : null;
 
-      // Generate presigned URLs for each image
-      const imagesWithUrls = await Promise.allSettled(
-        images.map(async (image) => {
-          const presignedUrl = await generatePresignedUrl({
-            operation: "get",
-            key: image.getDataValue("fileLocationInS3"),
-            expiresIn: 86400, // 24 hours
-          });
+      const imagesWithUrls = await this._generateImageUrls(images);
 
-          return {
-            imageId: image.imageId,
-            fileName: image.fileName,
-            fileType: image.fileMIMEtype,
-            fileSize: image.fileSizeInKiloBytes,
-            folderId: image.folderId,
-            userId: image.userId,
-            status: image.status,
-            createdAt: image.createdAt,
-            updatedAt: image.updatedAt,
-            presignedUrl,
-          };
-        })
-      );
-
-      const imagesWithUrlsResolved = imagesWithUrls
-        .filter((result) => result.status === "fulfilled")
-        .map((result) => result.value);
-
-      // Calculate pagination metadata
-      const totalPages = Math.ceil(count / PAGE_LIMIT);
-      const hasNextPage = page < totalPages;
-      const hasPreviousPage = page > 1;
+      const pagination = this._calculatePagination(count, page, PAGE_LIMIT);
 
       Logger.info(
         `Fetched ${images.length} images for user ${userId}, page ${page}`
       );
 
       return {
-        images: imagesWithUrlsResolved,
+        images: imagesWithUrls,
         folderDetails,
-        pagination: {
-          currentPage: Number(page),
-          totalPages,
-          totalItems: count,
-          itemsPerPage: PAGE_LIMIT,
-          hasNextPage,
-          hasPreviousPage,
-        },
+        pagination,
       };
     } catch (error) {
       Logger.error("Error fetching uploaded images:", error);
       throw error;
     }
+  }
+
+  _validateFetchParams({ userId, filterBy, sortBy, sortOrder, page }) {
+    if (!userId) {
+      ImageExceptions.throwInvalidParametersError();
+    }
+
+    const validFilterBy = ["name", "tag"];
+    const validSortBy = ["alphabetical", "newest", "size"];
+    const validSortOrder = ["asc", "desc"];
+
+    if (filterBy && !validFilterBy.includes(filterBy)) {
+      throw new Error('Invalid filterBy parameter. Must be "name" or "tag"');
+    }
+
+    if (!validSortBy.includes(sortBy)) {
+      throw new Error(
+        'Invalid sortBy parameter. Must be "alphabetical", "newest", or "size"'
+      );
+    }
+
+    if (!validSortOrder.includes(sortOrder)) {
+      throw new Error('Invalid sortOrder parameter. Must be "asc" or "desc"');
+    }
+
+    if (page < 1) {
+      throw new Error("Invalid page parameter. Must be greater than 0");
+    }
+  }
+
+  async _fetchImages({
+    userId,
+    folderId,
+    filterBy,
+    searchParam,
+    sortBy,
+    sortOrder,
+    page,
+    limit,
+  }) {
+    const whereClause = this._buildWhereClause(
+      userId,
+      folderId,
+      filterBy,
+      searchParam
+    );
+    const orderClause = this._buildOrderClause(sortBy, sortOrder);
+    const offset = (page - 1) * limit;
+
+    return await this.Image.findAndCountAll({
+      where: whereClause,
+      order: orderClause,
+      limit,
+      offset,
+      attributes: [
+        "imageId",
+        "fileName",
+        "fileMIMEtype",
+        "fileSizeInKiloBytes",
+        "folderId",
+        "userId",
+        "fileStatus",
+        "createdAt",
+        "updatedAt",
+        "fileLocationInS3",
+        "thumbnailS3Key",
+      ],
+    });
+  }
+
+  _buildWhereClause(userId, folderId, filterBy, searchParam) {
+    const whereClause = {
+      userId,
+      fileStatus: "UPLOAD_COMPLETED",
+    };
+
+    if (folderId) {
+      whereClause.folderId = folderId;
+    }
+
+    if (filterBy && searchParam) {
+      if (filterBy === "name") {
+        whereClause.fileName = { [Op.like]: `%${searchParam}%` };
+      } else if (filterBy === "tag") {
+        whereClause.tags = { [Op.like]: `%${searchParam}%` };
+      }
+    }
+
+    return whereClause;
+  }
+
+  _buildOrderClause(sortBy, sortOrder) {
+    switch (sortBy) {
+      case "alphabetical":
+        return [["fileName", sortOrder.toUpperCase()]];
+      case "newest":
+        return [["createdAt", sortOrder.toUpperCase()]];
+      case "size":
+        return [["fileSizeInKiloBytes", sortOrder.toUpperCase()]];
+      default:
+        return [["createdAt", "DESC"]];
+    }
+  }
+
+  async _getFolderDetails(folderId) {
+    if (!folderId) return null;
+
+    return await this.Folder.findOne({
+      where: { folderId },
+      raw: true,
+    });
+  }
+
+  async _generateImageUrls(images) {
+    const imagePromises = images.map(async (image) => {
+      try {
+        const [presignedUrl, thumbnailPresignedUrl] = await Promise.all([
+          this._generatePresignedUrl(image.fileLocationInS3),
+          image.thumbnailS3Key
+            ? this._generatePresignedUrl(image.thumbnailS3Key)
+            : null,
+        ]);
+
+        return {
+          imageId: image.imageId,
+          fileName: image.fileName,
+          fileType: image.fileMIMEtype,
+          fileSize: image.fileSizeInKiloBytes,
+          folderId: image.folderId,
+          userId: image.userId,
+          status: image.fileStatus,
+          createdAt: image.createdAt,
+          updatedAt: image.updatedAt,
+          presignedUrl,
+          thumbnailPresignedUrl,
+        };
+      } catch (error) {
+        Logger.error(
+          `Error generating URLs for image ${image.imageId}:`,
+          error
+        );
+        return {
+          imageId: image.imageId,
+          fileName: image.fileName,
+          fileType: image.fileMIMEtype,
+          fileSize: image.fileSizeInKiloBytes,
+          folderId: image.folderId,
+          userId: image.userId,
+          status: image.fileStatus,
+          createdAt: image.createdAt,
+        };
+      }
+    });
+    return Promise.all(imagePromises);
   }
 }
 

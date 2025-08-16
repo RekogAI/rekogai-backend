@@ -1,7 +1,9 @@
 import { asyncHandler, handleApiResponse } from "../../middlewares/index.js";
 import FolderModel from "../../models/FolderModel.js";
+import AlbumModel from "../../models/AlbumModel.js";
 
 const folderModel = new FolderModel();
+const albumModel = new AlbumModel();
 
 export const createFolderRoute = asyncHandler(async (req, res) => {
   const apiResponse = await folderModel.createFolder(req.body);
@@ -24,7 +26,7 @@ export const getFolderContentsRoute = asyncHandler(async (req, res) => {
 });
 
 export const getFolderRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await folderModel.getFolderById(req.query);
+  const apiResponse = await folderModel.getFolderContent(req.query);
   return handleApiResponse(res, apiResponse);
 });
 
@@ -35,5 +37,10 @@ export const restoreFolderRoute = asyncHandler(async (req, res) => {
 
 export const fetchFolderContentRoute = asyncHandler(async (req, res) => {
   const apiResponse = await folderModel.fetchFolderContent(req.query);
+  return handleApiResponse(res, apiResponse);
+});
+
+export const fetchAlbumsRoute = asyncHandler(async (req, res) => {
+  const apiResponse = await albumModel.fetchAlbums(req.query);
   return handleApiResponse(res, apiResponse);
 });

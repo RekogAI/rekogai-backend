@@ -283,4 +283,27 @@ export const AlbumExceptions = {
     );
   },
 };
+
+export const FaceExceptions = {
+  /**
+   * Throws an error when required parameters are missing
+   */
+  throwInvalidParametersError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.BAD_REQUEST,
+      API_ERROR_MESSAGES.INVALID_PARAMETERS,
+      API_ERROR_CODES.INVALID_PARAMETERS
+    );
+  },
+  /**
+   * Throws an error when face is not found
+   */
+  throwFaceNotFoundError() {
+    throwApiError(
+      API_ERROR_STATUS_CODES.NOT_FOUND,
+      "Face not found",
+      API_ERROR_CODES.RESOURCE_NOT_FOUND
+    );
+  },
+};
 export default FolderExceptions;

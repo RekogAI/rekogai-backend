@@ -30,6 +30,29 @@ const Image = sequelize.define(
       onUpdate: "cascade",
       onDelete: "set null",
     },
+    thumbnailId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    thumbnailS3Key: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "S3 key for the thumbnail image",
+    },
+    thumbnailGeneratedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      get() {
+        const value = this.getDataValue("thumbnailGeneratedAt");
+        return value
+          ? value.toISOString().replace("T", " ").substring(0, 19)
+          : null;
+      },
+      set(value) {
+        this.setDataValue("thumbnailGeneratedAt", new Date(value));
+      },
+    },
+
     fileName: {
       type: DataTypes.STRING(255),
       allowNull: false,

@@ -4,7 +4,6 @@ import Face from "./faces.js";
 import Album from "./albums.js";
 import Folder from "./folders.js";
 import APIResponse from "./api_reponse.js";
-import Thumbnail from "./thumbnails.js";
 import Token from "./tokens.js";
 
 // User Associations
@@ -39,6 +38,11 @@ Face.belongsTo(Image, {
 Album.belongsTo(User, {
   foreignKey: "userId",
   as: "user",
+});
+Album.hasOne(Face, {
+  foreignKey: "faceId",
+  sourceKey: "faceId",
+  as: "face",
 });
 
 // Folder Associations
@@ -83,17 +87,6 @@ Image.hasMany(APIResponse, {
   as: "apiResponses",
 });
 
-// Thumbnail Associations
-Thumbnail.belongsTo(Face, {
-  foreignKey: "faceId",
-  as: "face",
-});
-
-Face.hasOne(Thumbnail, {
-  foreignKey: "faceId",
-  as: "thumbnail",
-});
-
 // Token Associations
 Token.belongsTo(User, {
   foreignKey: "userId",
@@ -124,6 +117,5 @@ export default {
   Album,
   Folder,
   APIResponse,
-  Thumbnail,
   Token,
 };

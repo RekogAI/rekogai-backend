@@ -18,9 +18,8 @@ const queueConfig = {
 // Define queue names
 export const QUEUE_NAMES = {
   IMAGE_PROCESSING: "image-processing",
-  FACE_DETECTION: "face-detection",
-  FACE_INDEXING: "face-indexing",
-  ALBUM_CREATION: "album-creation",
+  THUMBNAIL_GENERATION: "thumbnail-generation",
+  FACE_THUMBNAIL_GENERATION: "face-thumbnail-generation",
 };
 
 // Create queues
@@ -28,34 +27,30 @@ export const imageProcessingQueue = new Queue(
   QUEUE_NAMES.IMAGE_PROCESSING,
   queueConfig
 );
-export const faceDetectionQueue = new Queue(
-  QUEUE_NAMES.FACE_DETECTION,
+
+export const thumbnailGenerationQueue = new Queue(
+  QUEUE_NAMES.THUMBNAIL_GENERATION,
   queueConfig
 );
-export const faceIndexingQueue = new Queue(
-  QUEUE_NAMES.FACE_INDEXING,
-  queueConfig
-);
-export const albumCreationQueue = new Queue(
-  QUEUE_NAMES.ALBUM_CREATION,
+
+export const faceThumbnailGenerationQueue = new Queue(
+  QUEUE_NAMES.FACE_THUMBNAIL_GENERATION,
   queueConfig
 );
 
 // Job types
 export const JOB_TYPES = {
   PROCESS_IMAGES_BATCH: "process-images-batch",
-  DETECT_FACES: "detect-faces",
-  INDEX_FACES: "index-faces",
-  CREATE_ALBUMS: "create-albums",
+  GENERATE_THUMBNAILS: "generate-thumbnails",
+  GENERATE_FACE_THUMBNAILS: "generate-face-thumbnails",
 };
 
 class QueueService {
   constructor() {
     this.queues = {
       [QUEUE_NAMES.IMAGE_PROCESSING]: imageProcessingQueue,
-      [QUEUE_NAMES.FACE_DETECTION]: faceDetectionQueue,
-      [QUEUE_NAMES.FACE_INDEXING]: faceIndexingQueue,
-      [QUEUE_NAMES.ALBUM_CREATION]: albumCreationQueue,
+      [QUEUE_NAMES.THUMBNAIL_GENERATION]: thumbnailGenerationQueue,
+      [QUEUE_NAMES.FACE_THUMBNAIL_GENERATION]: faceThumbnailGenerationQueue,
     };
   }
 
@@ -81,59 +76,38 @@ class QueueService {
     }
   }
 
-  /**
-   * Add face detection job
-   */
-  async addFaceDetectionJob(jobData, options = {}) {
+  async addThumbnailGenerationJob(jobData, options = {}) {
     try {
-      const job = await faceDetectionQueue.add(
-        JOB_TYPES.DETECT_FACES,
+      const job = await thumbnailGenerationQueue.add(
+        JOB_TYPES.GENERATE_THUMBNAILS,
         jobData,
-        options
+        {
+          ...options,
+          jobId: `${jobData.userId}-${jobData.folderId}-${Date.now()}`,
+        }
       );
-
-      Logger.info(`Added face detection job: ${job.id}`);
+      Logger.info(`Added thumbnail generation job: ${job.id}`);
       return job;
     } catch (error) {
-      Logger.error("Error adding face detection job:", error);
+      Logger.error("Error adding thumbnail generation job:", error);
       throw error;
     }
   }
 
-  /**
-   * Add face indexing job
-   */
-  async addFaceIndexingJob(jobData, options = {}) {
+  async addFaceThumbnailGenerationJob(jobData, options = {}) {
     try {
-      const job = await faceIndexingQueue.add(
-        JOB_TYPES.INDEX_FACES,
+      const job = await faceThumbnailGenerationQueue.add(
+        JOB_TYPES.GENERATE_FACE_THUMBNAILS,
         jobData,
-        options
+        {
+          ...options,
+          jobId: `face-${jobData.faceId}-${Date.now()}`,
+        }
       );
-
-      Logger.info(`Added face indexing job: ${job.id}`);
+      Logger.info(`Added face thumbnail generation job: ${job.id}`);
       return job;
     } catch (error) {
-      Logger.error("Error adding face indexing job:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Add album creation job
-   */
-  async addAlbumCreationJob(jobData, options = {}) {
-    try {
-      const job = await albumCreationQueue.add(
-        JOB_TYPES.CREATE_ALBUMS,
-        jobData,
-        options
-      );
-
-      Logger.info(`Added album creation job: ${job.id}`);
-      return job;
-    } catch (error) {
-      Logger.error("Error adding album creation job:", error);
+      Logger.error("Error adding face thumbnail generation job:", error);
       throw error;
     }
   }

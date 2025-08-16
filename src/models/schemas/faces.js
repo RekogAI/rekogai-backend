@@ -29,6 +29,22 @@ const Face = sequelize.define(
       allowNull: true,
       comment: "Face thumbnail URL",
     },
+    faceThumbnailS3Key: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "S3 key for the face thumbnail",
+    },
+    faceThumbnailId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: "UUID for the face thumbnail",
+    },
+    faceThumbnailGeneratedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: "Timestamp when the face thumbnail was generated",
+    },
+
     facePopularityScore: {
       type: DataTypes.INTEGER,
       defaultValue: 0,

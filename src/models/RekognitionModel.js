@@ -7,14 +7,10 @@ import {
 } from "@aws-sdk/client-rekognition";
 import { generateUUID } from "../utility/index.js";
 import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
-import { DetectLabelsCommand } from "@aws-sdk/client-rekognition";
 import configObj from "../config.js";
 import Logger from "../lib/Logger.js";
 import models from "../models/schemas/associations.js";
-import { API_TYPES, IMAGE_STATUS } from "../utility/constants.js";
-import sharp from "sharp";
-import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import Thumbnail from "./schemas/thumbnails.js";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { throwApiError } from "../utility/ErrorHandler.js";
 import {
   API_ERROR_CODES,

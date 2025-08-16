@@ -11,13 +11,10 @@ const redisConfig = {
   maxRetriesPerRequest: 3,
 };
 
-// Main Redis connection for general operations
 export const redis = new Redis(redisConfig);
 
-// Separate connection for pub-sub operations
 export const redisPubSub = new Redis(redisConfig);
 
-// Connection event handlers
 redis.on("connect", () => {
   Logger.info("Redis connected successfully");
 });
@@ -34,4 +31,4 @@ redisPubSub.on("error", (err) => {
   Logger.error("Redis Pub-Sub connection error:", err);
 });
 
-export default redis;
+export default { redis, redisPubSub };

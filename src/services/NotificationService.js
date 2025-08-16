@@ -1,7 +1,6 @@
-import { redisPubSub } from "../config/redis.js";
+import { redisPubSub, redis } from "../config/redis.js";
 import Logger from "../lib/Logger.js";
 
-// Channel names
 export const CHANNELS = {
   JOB_PROGRESS: "job:progress",
   JOB_COMPLETED: "job:completed",
@@ -9,18 +8,11 @@ export const CHANNELS = {
   USER_NOTIFICATIONS: "user:notifications",
 };
 
-// Event types
 export const EVENT_TYPES = {
   JOB_STARTED: "job_started",
   JOB_PROGRESS: "job_progress",
   JOB_COMPLETED: "job_completed",
   JOB_FAILED: "job_failed",
-  FACE_DETECTION_STARTED: "face_detection_started",
-  FACE_DETECTION_COMPLETED: "face_detection_completed",
-  FACE_INDEXING_STARTED: "face_indexing_started",
-  FACE_INDEXING_COMPLETED: "face_indexing_completed",
-  ALBUM_CREATION_STARTED: "album_creation_started",
-  ALBUM_CREATION_COMPLETED: "album_creation_completed",
 };
 
 class NotificationService {
@@ -39,11 +31,11 @@ class NotificationService {
         ...jobData,
       };
 
-      await redisPubSub.publish(CHANNELS.JOB_PROGRESS, JSON.stringify(message));
+      await redis.publish(CHANNELS.JOB_PROGRESS, JSON.stringify(message));
 
       // Also publish to user-specific channel
       if (jobData.userId) {
-        await redisPubSub.publish(
+        await redis.publish(
           `${CHANNELS.USER_NOTIFICATIONS}:${jobData.userId}`,
           JSON.stringify(message)
         );
@@ -66,13 +58,10 @@ class NotificationService {
         ...jobData,
       };
 
-      await redisPubSub.publish(
-        CHANNELS.JOB_COMPLETED,
-        JSON.stringify(message)
-      );
+      await redis.publish(CHANNELS.JOB_COMPLETED, JSON.stringify(message));
 
       if (jobData.userId) {
-        await redisPubSub.publish(
+        await redis.publish(
           `${CHANNELS.USER_NOTIFICATIONS}:${jobData.userId}`,
           JSON.stringify(message)
         );
@@ -95,10 +84,10 @@ class NotificationService {
         ...jobData,
       };
 
-      await redisPubSub.publish(CHANNELS.JOB_FAILED, JSON.stringify(message));
+      await redis.publish(CHANNELS.JOB_FAILED, JSON.stringify(message));
 
       if (jobData.userId) {
-        await redisPubSub.publish(
+        await redis.publish(
           `${CHANNELS.USER_NOTIFICATIONS}:${jobData.userId}`,
           JSON.stringify(message)
         );
@@ -107,63 +96,6 @@ class NotificationService {
       Logger.error(`Published job failure: ${jobData.jobId}`);
     } catch (error) {
       Logger.error("Error publishing job failure:", error);
-    }
-  }
-
-  /**
-   * Publish face detection progress
-   */
-  async publishFaceDetectionUpdate(data) {
-    try {
-      const message = {
-        type: data.completed
-          ? EVENT_TYPES.FACE_DETECTION_COMPLETED
-          : EVENT_TYPES.FACE_DETECTION_STARTED,
-        timestamp: new Date().toISOString(),
-        ...data,
-      };
-
-      await this.publishJobProgress(message);
-    } catch (error) {
-      Logger.error("Error publishing face detection update:", error);
-    }
-  }
-
-  /**
-   * Publish face indexing progress
-   */
-  async publishFaceIndexingUpdate(data) {
-    try {
-      const message = {
-        type: data.completed
-          ? EVENT_TYPES.FACE_INDEXING_COMPLETED
-          : EVENT_TYPES.FACE_INDEXING_STARTED,
-        timestamp: new Date().toISOString(),
-        ...data,
-      };
-
-      await this.publishJobProgress(message);
-    } catch (error) {
-      Logger.error("Error publishing face indexing update:", error);
-    }
-  }
-
-  /**
-   * Publish album creation progress
-   */
-  async publishAlbumCreationUpdate(data) {
-    try {
-      const message = {
-        type: data.completed
-          ? EVENT_TYPES.ALBUM_CREATION_COMPLETED
-          : EVENT_TYPES.ALBUM_CREATION_STARTED,
-        timestamp: new Date().toISOString(),
-        ...data,
-      };
-
-      await this.publishJobProgress(message);
-    } catch (error) {
-      Logger.error("Error publishing album creation update:", error);
     }
   }
 

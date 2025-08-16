@@ -11,6 +11,8 @@ import WebSocketService from "../src/services/WebSocketService.js";
 import ImageProcessingWorker from "../src/workers/ImageProcessingWorker.js";
 import Logger from "../src/lib/Logger.js";
 import { redis } from "../src/config/redis.js";
+import ThumbnailGeneratorWorker from "../src/workers/ThumbnailGeneratorWorker.js";
+import FaceThumbnailGeneratorWorker from "../src/workers/FaceThumbnailGeneratorWorker.js";
 
 const debugLog = debug("rekogai-backend:server");
 
@@ -56,10 +58,14 @@ async function initializeServices() {
 
     // Initialize workers
     const imageProcessingWorker = new ImageProcessingWorker();
+    const thumbnailGeneratorWorker = new ThumbnailGeneratorWorker();
+    const faceThumbnailGeneratorWorker = new FaceThumbnailGeneratorWorker();
     console.log("Image processing worker initialized");
 
     // Store worker reference for cleanup
     app.set("imageProcessingWorker", imageProcessingWorker);
+    app.set("thumbnailGeneratorWorker", thumbnailGeneratorWorker);
+    app.set("faceThumbnailGeneratorWorker", faceThumbnailGeneratorWorker);
   } catch (error) {
     Logger.error("Failed to initialize services:", error);
     process.exit(1);
