@@ -1,17 +1,20 @@
 import {
-  S3Client,
+  s3Client,
   GetObjectCommand,
   PutObjectCommand,
-} from "@aws-sdk/client-s3";
+} from "../providers/aws-client-provider.js";
 import configObj from "../config.js";
 import { generateUUID } from "../utility/index.js";
-import { IMAGE_STATUS, getMilliseconds, getSeconds } from "../utility/constants.js";
+import {
+  IMAGE_STATUS,
+  getMilliseconds,
+  getSeconds,
+} from "../utility/constants.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { Image } from "./index.js";
 
 const { config, ENVIRONMENT } = configObj;
-const s3Client = new S3Client(config[ENVIRONMENT].AWS_SDK_CONFIG);
 
 const savePreUploadImageDetails = async ({
   signedUrl,

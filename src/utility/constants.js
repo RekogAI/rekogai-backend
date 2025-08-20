@@ -32,6 +32,7 @@ export const API_TYPES = {
     value: "SearchFacesByImage",
   },
   INDEX_FACES: { key: "INDEX_FACES", value: "IndexFaces" },
+  DETECT_FACES: { key: "DETECT_FACES", value: "DetectFaces" },
 };
 
 export const SIGN_UP_METHODS = {

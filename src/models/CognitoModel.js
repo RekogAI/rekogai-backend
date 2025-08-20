@@ -1,5 +1,5 @@
 import {
-  CognitoIdentityProviderClient,
+  cognitoClient,
   SignUpCommand,
   ConfirmSignUpCommand,
   InitiateAuthCommand,
@@ -7,7 +7,7 @@ import {
   ConfirmForgotPasswordCommand,
   ResendConfirmationCodeCommand,
   GlobalSignOutCommand,
-} from "@aws-sdk/client-cognito-identity-provider";
+} from "../providers/aws-client-provider.js";
 import Logger from "../lib/Logger.js";
 import UserModel from "./UserModel.js";
 import { setCookies } from "../utility/index.js";
@@ -37,9 +37,7 @@ import RekognitionModel from "../models/RekognitionModel.js";
  */
 class CognitoModel {
   constructor() {
-    this.client = new CognitoIdentityProviderClient(
-      config[ENVIRONMENT].AWS_SDK_CONFIG
-    );
+    this.client = cognitoClient;
     this.userPoolId = config[ENVIRONMENT].COGNITO_USER_POOL_ID;
     this.clientId = config[ENVIRONMENT].COGNITO_CLIENT_ID;
     this.userModel = new UserModel();
@@ -252,8 +250,6 @@ class CognitoModel {
 
       // create collection for the user
       const collectionId = await RekognitionModel.createCollection();
-
-      
 
       const [emailVerified] = await User.update(
         { isEmailVerified: true, collectionId },

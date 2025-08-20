@@ -1,16 +1,17 @@
 import {
-  RekognitionClient,
+  rekognitionClient,
+  s3Client,
   CreateCollectionCommand,
   IndexFacesCommand,
   SearchFacesByImageCommand,
   CompareFacesCommand,
-} from "@aws-sdk/client-rekognition";
+  GetObjectCommand,
+  ListObjectsCommand,
+} from "../providers/aws-client-provider.js";
 import { generateUUID } from "../utility/index.js";
-import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
 import configObj from "../config.js";
 import Logger from "../lib/Logger.js";
 import models from "../models/schemas/associations.js";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { throwApiError } from "../utility/ErrorHandler.js";
 import {
   API_ERROR_CODES,
@@ -24,10 +25,6 @@ const { Face, Album, Image, APIResponse, User } = models;
 
 const { config, ENVIRONMENT } = configObj;
 
-const rekognitionClient = new RekognitionClient(
-  config[ENVIRONMENT].AWS_SDK_CONFIG
-);
-const s3Client = new S3Client(config[ENVIRONMENT].AWS_SDK_CONFIG);
 /* TODO: Refactor this file and modify the functions as per FolderModel structure */
 
 const createCollection = async () => {

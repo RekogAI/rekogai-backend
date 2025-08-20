@@ -8,7 +8,6 @@ const redisConfig = {
   port: config[ENVIRONMENT].REDIS_PORT,
   password: config[ENVIRONMENT].REDIS_PASSWORD,
   retryDelayOnFailover: 100,
-  maxRetriesPerRequest: 3,
 };
 
 export const redis = new Redis(redisConfig);

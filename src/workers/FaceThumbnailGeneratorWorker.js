@@ -74,7 +74,8 @@ class FaceThumbnailGeneratorWorker {
   }
 
   async processJob(job) {
-    const { faceId, imageId, userId, s3Key, boundingBox } = job.data;
+    const { faceId, imageId, userId, croppedFaceBuffer, boundingBox } =
+      job.data;
 
     try {
       const face = await Face.findOne({ where: { faceId } });
@@ -82,33 +83,11 @@ class FaceThumbnailGeneratorWorker {
         FaceExceptions.throwFaceNotFoundError();
       }
 
-      // Get the original image from S3
-      const s3Params = {
-        Bucket: config[ENVIRONMENT].S3_BUCKET_NAME,
-        Key: s3Key,
-      };
+      // Convert base64 buffer back to Buffer
+      const faceBuffer = Buffer.from(croppedFaceBuffer, "base64");
 
-      const s3Object = await this.s3Client.send(new GetObjectCommand(s3Params));
-      const imageBuffer = await this.streamToBuffer(s3Object.Body);
-
-      // Get image metadata
-      const metadata = await sharp(imageBuffer).metadata();
-      const { width, height } = metadata;
-
-      // Calculate crop dimensions from bounding box
-      const left = Math.floor(boundingBox.Left * width);
-      const top = Math.floor(boundingBox.Top * height);
-      const cropWidth = Math.floor(boundingBox.Width * width);
-      const cropHeight = Math.floor(boundingBox.Height * height);
-
-      // Create face thumbnail
-      const faceThumbnailBuffer = await sharp(imageBuffer)
-        .extract({
-          left: Math.max(0, left),
-          top: Math.max(0, top),
-          width: Math.min(cropWidth, width - left),
-          height: Math.min(cropHeight, height - top),
-        })
+      // Create face thumbnail from the already cropped face buffer
+      const faceThumbnailBuffer = await sharp(faceBuffer)
         .resize(200, 200, { fit: "cover" })
         .jpeg({ quality: 90 })
         .toBuffer();

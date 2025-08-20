@@ -6,21 +6,21 @@ import models from "../models/schemas/associations.js";
 import Logger from "../lib/Logger.js";
 import { IMAGE_STATUS, API_TYPES } from "../utility/constants.js";
 import {
-  RekognitionClient,
-  DetectLabelsCommand,
-  SearchFacesByImageCommand,
+  rekognitionClient,
+  s3Client,
+  DetectFacesCommand,
+  SearchFacesCommand,
   IndexFacesCommand,
-} from "@aws-sdk/client-rekognition";
+  GetObjectCommand,
+  SearchFacesByImageCommand,
+} from "../providers/aws-client-provider.js";
 import configObj from "../config.js";
 import QueueService from "../services/QueueService.js";
 import { Op } from "sequelize";
+import sharp from "sharp";
 
 const { Image, User, Face, Album, APIResponse } = models;
 const { config, ENVIRONMENT } = configObj;
-
-const rekognitionClient = new RekognitionClient(
-  config[ENVIRONMENT].AWS_SDK_CONFIG
-);
 
 class ImageProcessingWorker {
   constructor() {
@@ -182,7 +182,7 @@ class ImageProcessingWorker {
   }
 
   async processBatch(images, collectionId, userId, job) {
-    const imagesWithFaces = await this.filterImagesWithFaces(images, userId);
+    const imagesWithFaces = await this.detectFacesInImages(images, userId);
     console.log(
       "🚀 ~ ImageProcessingWorker ~ processBatch ~ imagesWithFaces:",
       imagesWithFaces
@@ -192,7 +192,7 @@ class ImageProcessingWorker {
       return;
     }
 
-    const faceIdToImageIdsMap = await this.sendImageBatchToRekognition(
+    const faceIdToImageIdsMap = await this.processFacesInImages(
       imagesWithFaces,
       collectionId,
       userId
@@ -244,29 +244,77 @@ class ImageProcessingWorker {
     return images;
   }
 
-  async filterImagesWithFaces(images, userId) {
-    const filteredImages = [];
+  async detectFacesInImages(images, userId) {
+    const imagesWithFaces = [];
     const updatePromises = [];
 
     for (const image of images) {
-      const { hasFaces } = await this.detectLabelsForAnnotation(image, userId);
-      if (hasFaces) {
-        filteredImages.push(image);
-        updatePromises.push(
-          Image.update(
-            {
-              fileStatus: IMAGE_STATUS.FACES_DETECTED,
-              facesDetected: true,
+      try {
+        const detectFacesCommand = new DetectFacesCommand({
+          Image: {
+            S3Object: {
+              Bucket: config[ENVIRONMENT].S3_BUCKET_NAME,
+              Name: image.fileLocationInS3,
             },
-            { where: { imageId: image.imageId } }
-          ),
-          QueueService.addThumbnailGenerationJob({
-            userId,
-            imageId: image.imageId,
-            folderId: image.folderId,
-          })
+          },
+          Attributes: ["DEFAULT", "ALL"],
+        });
+
+        const response = await rekognitionClient.send(detectFacesCommand);
+
+        await APIResponse.create({
+          userId,
+          imageId: image.imageId,
+          response: JSON.stringify(response),
+          type: API_TYPES.DETECT_FACES?.key || "DetectFaces",
+        });
+
+        if (response.FaceDetails && response.FaceDetails.length > 0) {
+          // Sort faces by confidence and take top 3
+          const topFaces = response.FaceDetails.sort(
+            (a, b) => b.Confidence - a.Confidence
+          ).slice(0, 3);
+
+          imagesWithFaces.push({
+            ...image,
+            faceDetails: topFaces,
+          });
+
+          updatePromises.push(
+            Image.update(
+              {
+                fileStatus: IMAGE_STATUS.FACES_DETECTED,
+                facesDetected: true,
+              },
+              { where: { imageId: image.imageId } }
+            ),
+            QueueService.addThumbnailGenerationJob({
+              userId,
+              imageId: image.imageId,
+              folderId: image.folderId,
+            })
+          );
+        } else {
+          updatePromises.push(
+            Image.update(
+              {
+                fileStatus: IMAGE_STATUS.NO_FACES_DETECTED,
+                facesDetected: false,
+              },
+              { where: { imageId: image.imageId } }
+            ),
+            QueueService.addThumbnailGenerationJob({
+              userId,
+              imageId: image.imageId,
+              folderId: image.folderId,
+            })
+          );
+        }
+      } catch (error) {
+        Logger.error(
+          `Error detecting faces for image ${image.imageId}:`,
+          error
         );
-      } else {
         updatePromises.push(
           Image.update(
             {
@@ -274,205 +322,225 @@ class ImageProcessingWorker {
               facesDetected: false,
             },
             { where: { imageId: image.imageId } }
-          ),
-          QueueService.addThumbnailGenerationJob({
-            userId,
-            imageId: image.imageId,
-            folderId: image.folderId,
-          })
+          )
         );
       }
     }
 
     await Promise.all(updatePromises);
-    return filteredImages;
+    return imagesWithFaces;
   }
 
-  async detectLabelsForAnnotation(image, userId) {
+  async cropFaceFromImage(s3Key, boundingBox) {
     try {
-      const detectLabelsCommand = new DetectLabelsCommand({
-        Image: {
-          S3Object: {
-            Bucket: config[ENVIRONMENT].S3_BUCKET_NAME,
-            Name: image.fileLocationInS3,
-          },
-        },
-        MaxLabels: 50,
-        MinConfidence: 85,
-        IncludeCategories: ["Person Description", "Expressions and Emotions"],
-        ExcludeCategories: [
-          "Animals and Pets",
-          "Apparel and Accessories",
-          "Beauty and Personal Care",
-          "Buildings and Architecture",
-          "Colors and Visual Composition",
-          "Damage Detection",
-          "Education",
-          "Everyday Objects",
-          "Food and Beverage",
-          "Furniture and Furnishings",
-          "Health and Fitness",
-          "Home and Indoors",
-          "Home Appliances",
-          "Hobbies and Interests",
-          "Kitchen and Dining",
-          "Materials",
-          "Medical",
-          "Nature and Outdoors",
-          "Offices and Workspaces",
-          "Patterns and Shapes",
-          "Plants and Flowers",
-          "Popular Landmarks",
-          "Public Safety",
-          "Religion",
-          "Sports",
-          "Symbols and Flags",
-          "Technology and Computing",
-          "Text and Documents",
-          "Tools and Machinery",
-          "Toys and Gaming",
-          "Transport and Logistics",
-          "Travel and Adventure",
-          "Vehicles and Automotive",
-          "Weapons and Military",
-        ],
+      // Download image from S3
+      const getObjectCommand = new GetObjectCommand({
+        Bucket: config[ENVIRONMENT].S3_BUCKET_NAME,
+        Key: s3Key,
       });
 
-      const response = await rekognitionClient.send(detectLabelsCommand);
+      const s3Object = await s3Client.send(getObjectCommand);
 
-      await APIResponse.create({
-        userId,
-        imageId: image.imageId,
-        response: JSON.stringify(response),
-        type: API_TYPES.DETECT_LABELS.key,
-      });
+      // Convert stream to buffer
+      const chunks = [];
+      for await (const chunk of s3Object.Body) {
+        chunks.push(chunk);
+      }
+      const imageBuffer = Buffer.concat(chunks);
 
-      const hasLabelsInIncludeCategories = response.Labels.some((label) =>
-        label.Categories.some((category) =>
-          ["Person Description", "Expressions and Emotions"].includes(
-            category.Name
-          )
-        )
+      const image = sharp(imageBuffer);
+      const metadata = await image.metadata();
+
+      // Calculate bounding box for face cropping
+      const expandedBox = {
+        Left: boundingBox.Left,
+        Top: boundingBox.Top,
+        Width: boundingBox.Width,
+        Height: boundingBox.Height,
+      };
+
+      // Ensure expanded box doesn't exceed image boundaries
+      expandedBox.Left = Math.max(
+        0,
+        Math.min(1 - expandedBox.Width, expandedBox.Left)
+      );
+      expandedBox.Top = Math.max(
+        0,
+        Math.min(1 - expandedBox.Height, expandedBox.Top)
       );
 
-      return { hasFaces: hasLabelsInIncludeCategories };
+      // Calculate crop dimensions with padding
+      const left = Math.floor(expandedBox.Left * metadata.width);
+      const top = Math.floor(expandedBox.Top * metadata.height);
+      const width = Math.min(
+        metadata.width - left,
+        Math.floor(expandedBox.Width * metadata.width)
+      );
+      const height = Math.min(
+        metadata.height - top,
+        Math.floor(expandedBox.Height * metadata.height)
+      );
+
+      // Crop the face
+      const croppedBuffer = await image
+        .extract({ left, top, width, height })
+        .jpeg({ quality: 90 })
+        .toBuffer();
+
+      const base64CroppedImage = croppedBuffer.toString("base64");
+      console.log(
+        "🚀 ~ ImageProcessingWorker ~ cropFaceFromImage ~ base64CroppedImage:",
+        base64CroppedImage
+      );
+
+      return croppedBuffer;
     } catch (error) {
-      Logger.error("Error detecting faces:", error);
-      return { hasFaces: false };
+      Logger.error("Error cropping face from image:", error);
+      throw error;
     }
   }
 
-  async sendImageBatchToRekognition(imageBatch, collectionId, userId) {
+  async processFacesInImages(imagesWithFaces, collectionId, userId) {
     const faceIdToImageIdsMap = {};
 
-    for (const image of imageBatch) {
-      const { fileLocationInS3, imageId } = image;
+    for (const imageData of imagesWithFaces) {
+      const { imageId, fileLocationInS3, faceDetails } = imageData;
 
-      const searchResponse = await this.searchFacesByImage({
-        bucketName: config[ENVIRONMENT].S3_BUCKET_NAME,
-        key: fileLocationInS3,
-        collectionId,
-      });
+      for (const faceDetail of faceDetails) {
+        try {
+          // Crop the face from the image
+          const croppedFaceBuffer = await this.cropFaceFromImage(
+            fileLocationInS3,
+            faceDetail.BoundingBox
+          );
 
-      await APIResponse.create({
-        userId,
-        imageId,
-        response: JSON.stringify(searchResponse),
-        type: API_TYPES.SEARCH_FACES_BY_IMAGE.key,
-      });
+          // Search for the cropped face
+          const searchResponse = await this.searchFacesByCroppedImage(
+            croppedFaceBuffer,
+            collectionId
+          );
 
-      if (searchResponse?.FaceMatches?.length > 0) {
-        searchResponse.FaceMatches.forEach((match) => {
-          const faceId = match.Face.FaceId;
-          if (!faceIdToImageIdsMap[faceId]) {
-            faceIdToImageIdsMap[faceId] = [];
+          await APIResponse.create({
+            userId,
+            imageId,
+            response: JSON.stringify(searchResponse),
+            type:
+              API_TYPES.SEARCH_FACES_BY_IMAGE?.key || "SEARCH_FACES_BY_IMAGE",
+          });
+
+          if (searchResponse?.FaceMatches?.length > 0) {
+            // Face found, add to existing album
+            searchResponse.FaceMatches.forEach((match) => {
+              const faceId = match.Face.FaceId;
+              if (!faceIdToImageIdsMap[faceId]) {
+                faceIdToImageIdsMap[faceId] = [];
+              }
+              if (!faceIdToImageIdsMap[faceId].includes(imageId)) {
+                faceIdToImageIdsMap[faceId].push(imageId);
+              }
+            });
+          } else {
+            // Face not found, index it
+            const indexResponse = await this.indexCroppedFace(
+              croppedFaceBuffer,
+              collectionId,
+              imageId,
+              userId,
+              faceDetail.BoundingBox
+            );
+
+            await APIResponse.create({
+              userId,
+              imageId,
+              response: JSON.stringify(indexResponse),
+              type: API_TYPES.INDEX_FACES?.key || "INDEX_FACES",
+            });
+
+            if (indexResponse?.FaceRecords?.length > 0) {
+              indexResponse.FaceRecords.forEach((record) => {
+                const faceId = record.Face.FaceId;
+                if (!faceIdToImageIdsMap[faceId]) {
+                  faceIdToImageIdsMap[faceId] = [];
+                }
+                if (!faceIdToImageIdsMap[faceId].includes(imageId)) {
+                  faceIdToImageIdsMap[faceId].push(imageId);
+                }
+              });
+            }
           }
-          faceIdToImageIdsMap[faceId].push(imageId);
-        });
-      } else {
-        const indexResponse = await this.indexFaces({
-          bucketName: config[ENVIRONMENT].S3_BUCKET_NAME,
-          key: fileLocationInS3,
-          collectionId,
-          imageId,
-          userId,
-        });
-
-        await APIResponse.create({
-          userId,
-          imageId,
-          response: JSON.stringify(indexResponse),
-          type: API_TYPES.INDEX_FACES.key,
-        });
-
-        indexResponse.FaceRecords.forEach((record) => {
-          const faceId = record.Face.FaceId;
-          if (!faceIdToImageIdsMap[faceId]) {
-            faceIdToImageIdsMap[faceId] = [];
-          }
-          faceIdToImageIdsMap[faceId].push(imageId);
-        });
+        } catch (error) {
+          Logger.error(`Error processing face in image ${imageId}:`, error);
+        }
       }
     }
 
     return faceIdToImageIdsMap;
   }
 
-  async searchFacesByImage({ bucketName, key, collectionId }) {
+  async searchFacesByCroppedImage(croppedFaceBuffer, collectionId) {
     try {
       const command = new SearchFacesByImageCommand({
         CollectionId: collectionId,
         Image: {
-          S3Object: { Bucket: bucketName, Name: key },
+          Bytes: croppedFaceBuffer,
         },
-        QualityFilter: "AUTO",
-        FaceMatchThreshold: 90,
+        QualityFilter: "NONE",
+        MaxFaces: 1,
+        FaceMatchThreshold: 70,
       });
       const response = await rekognitionClient.send(command);
       return response;
     } catch (error) {
-      Logger.error("Error searching faces by image:", error);
-      throw error;
+      Logger.error("Error searching faces by cropped image:", error);
+      return { FaceMatches: [] };
     }
   }
 
-  async indexFaces({ bucketName, key, collectionId, imageId, userId }) {
+  async indexCroppedFace(
+    croppedFaceBuffer,
+    collectionId,
+    imageId,
+    userId,
+    boundingBox
+  ) {
     try {
       const command = new IndexFacesCommand({
         CollectionId: collectionId,
-        Image: { S3Object: { Bucket: bucketName, Name: key } },
-        QualityFilter: "MEDIUM",
+        Image: { Bytes: croppedFaceBuffer },
+        QualityFilter: "HIGH",
+        MaxFaces: 1,
         DetectionAttributes: ["DEFAULT"],
       });
       const response = await rekognitionClient.send(command);
 
-      const faceRecordsToCreate = response.FaceRecords.map((faceRecord) => ({
-        faceId: faceRecord.Face.FaceId,
-        imageId,
-        collectionId: collectionId,
-        faceRecordDetails: faceRecord,
-      }));
-
-      await Face.bulkCreate(faceRecordsToCreate);
-
-      // Queue face thumbnail generation for each detected face
-      const faceThumbnailJobs = response.FaceRecords.map((faceRecord) => {
-        const boundingBox = faceRecord.Face.BoundingBox;
-        return QueueService.addFaceThumbnailGenerationJob({
+      if (response?.FaceRecords?.length > 0) {
+        const faceRecordsToCreate = response.FaceRecords.map((faceRecord) => ({
           faceId: faceRecord.Face.FaceId,
           imageId,
-          userId,
-          s3Key: key,
-          boundingBox,
-        });
-      });
+          collectionId: collectionId,
+          faceRecordDetails: faceRecord,
+        }));
 
-      await Promise.all(faceThumbnailJobs);
+        await Face.bulkCreate(faceRecordsToCreate);
+
+        // Queue face thumbnail generation for each detected face
+        const faceThumbnailJobs = response.FaceRecords.map((faceRecord) => {
+          return QueueService.addFaceThumbnailGenerationJob({
+            faceId: faceRecord.Face.FaceId,
+            imageId,
+            userId,
+            croppedFaceBuffer,
+            boundingBox,
+          });
+        });
+
+        await Promise.all(faceThumbnailJobs);
+      }
 
       return response;
     } catch (error) {
-      Logger.error("Error indexing faces:", error);
-      throw error;
+      Logger.error("Error indexing cropped face:", error);
+      return { FaceRecords: [] };
     }
   }
 
