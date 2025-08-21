@@ -18,6 +18,7 @@ import configObj from "../config.js";
 import QueueService from "../services/QueueService.js";
 import { Op } from "sequelize";
 import sharp from "sharp";
+import ImageQualityScorer from "../models/ImageQualityScorer.js";
 
 const { Image, User, Face, Album, APIResponse } = models;
 const { config, ENVIRONMENT } = configObj;
@@ -41,6 +42,27 @@ class ImageProcessingWorker {
         }
       );
       console.log("Worker instance created successfully");
+
+      this.imageQualityScorer = new ImageQualityScorer({
+        baseScore: 100,
+        minScore: 1,
+        penalties: {
+          faceOccluded: 40,
+          sunglasses: 25,
+          eyesClosed: 20,
+          lowBrightness: 15,
+          lowSharpness: 30,
+          noSmile: 5,
+          mouthOpen: 8,
+          badPose: 15,
+        },
+        thresholds: {
+          brightness: { min: 60, max: 100 },
+          sharpness: { min: 25, max: 100 },
+          pose: { pitch: 10, roll: 10, yaw: 10 },
+        },
+        confidenceThreshold: 98,
+      });
 
       this.setupEventHandlers();
     } catch (error) {
@@ -269,15 +291,15 @@ class ImageProcessingWorker {
           type: API_TYPES.DETECT_FACES?.key || "DetectFaces",
         });
 
-        if (response.FaceDetails && response.FaceDetails.length > 0) {
-          // Sort faces by confidence and take top 3
-          const topFaces = response.FaceDetails.sort(
-            (a, b) => b.Confidence - a.Confidence
-          ).slice(0, 3);
+        const bestFaces = this.imageQualityScorer.getBestFaces(
+          response.FaceDetails || [],
+          80
+        );
 
+        if (bestFaces && bestFaces.length > 0) {
           imagesWithFaces.push({
             ...image,
-            faceDetails: topFaces,
+            faceDetails: bestFaces,
           });
 
           updatePromises.push(
@@ -507,7 +529,7 @@ class ImageProcessingWorker {
       const command = new IndexFacesCommand({
         CollectionId: collectionId,
         Image: { Bytes: croppedFaceBuffer },
-        QualityFilter: "HIGH",
+        QualityFilter: "HIGH", // Use HIGH quality filter instead of NONE
         MaxFaces: 1,
         DetectionAttributes: ["DEFAULT"],
       });
