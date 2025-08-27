@@ -848,10 +848,6 @@ class CognitoModel {
     );
 
     const rootFolder = await this.folderModel.getRootFolder(userId);
-    console.log(
-      "🚀 ~ CognitoModel ~ generateTokenAndSetCookies ~ rootFolder:",
-      rootFolder
-    );
 
     const cookies = {
       access_token: accessToken?.token,
