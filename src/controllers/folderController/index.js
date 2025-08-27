@@ -26,7 +26,10 @@ export const getFolderContentsRoute = asyncHandler(async (req, res) => {
 });
 
 export const getFolderRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await folderModel.getFolderContent(req.query);
+  const apiResponse = await folderModel.getFolderContent({
+    folderId: req.params.folderId,
+    userId: req.query.userId,
+  });
   return handleApiResponse(res, apiResponse);
 });
 
@@ -36,11 +39,22 @@ export const restoreFolderRoute = asyncHandler(async (req, res) => {
 });
 
 export const fetchFolderContentRoute = asyncHandler(async (req, res) => {
-  const apiResponse = await folderModel.fetchFolderContent(req.query);
+  const apiResponse = await folderModel.fetchFolderContent({
+    folderId: req.params.folderId,
+    userId: req.query.userId,
+  });
   return handleApiResponse(res, apiResponse);
 });
 
 export const fetchAlbumsRoute = asyncHandler(async (req, res) => {
   const apiResponse = await albumModel.fetchAlbums(req.query);
+  return handleApiResponse(res, apiResponse);
+});
+
+export const getAlbumByIdRoute = asyncHandler(async (req, res) => {
+  const apiResponse = await albumModel.getAlbumById({
+    albumId: req.params.id,
+    userId: req.query.userId,
+  });
   return handleApiResponse(res, apiResponse);
 });

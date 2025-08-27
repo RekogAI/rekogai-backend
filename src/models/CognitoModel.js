@@ -847,12 +847,19 @@ class CognitoModel {
       rememberMe ? getMinutes(30, 0, 0) : getMinutes(1, 0, 0)
     );
 
+    const rootFolder = await this.folderModel.getRootFolder(userId);
+    console.log(
+      "🚀 ~ CognitoModel ~ generateTokenAndSetCookies ~ rootFolder:",
+      rootFolder
+    );
+
     const cookies = {
       access_token: accessToken?.token,
       refresh_token: refreshToken?.token,
       id_token: idToken?.token,
       user_id: userId,
       email: email || null,
+      folder_id: rootFolder?.folderId || null,
     };
 
     setCookies(res, cookies, rememberMe);

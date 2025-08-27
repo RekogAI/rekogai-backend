@@ -472,7 +472,7 @@ class FolderModel {
     }
   }
 
-  async getFolderContent({ userId, folderId = null }) {
+  async getFolderContent({ userId, folderId }) {
     try {
       if (!userId) {
         FolderExceptions.throwInvalidParametersError();

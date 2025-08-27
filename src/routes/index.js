@@ -23,6 +23,7 @@ import {
   deleteFolderRoute,
   fetchAlbumsRoute,
   fetchFolderContentRoute,
+  getAlbumByIdRoute,
   getFolderContentsRoute,
   getFolderRoute,
   renameFolderRoute,
@@ -38,11 +39,9 @@ import {
 const createRouter = () => {
   const router = express.Router();
 
-  // Update body-parser limits to handle large files
   router.use(bodyParser.json({ limit: "100mb", extended: true }));
   router.use(bodyParser.urlencoded({ limit: "100mb", extended: true }));
 
-  // Add this before your error handling middleware
   router.get("/health", (req, res) => {
     res.status(200).json({
       status: "healthy",
@@ -50,60 +49,48 @@ const createRouter = () => {
       uptime: process.uptime(),
       environment: process.env.NODE_ENV,
       version: process.env.npm_package_version || "1.0.0",
-      database: "connected", // You can add actual DB health check here
+      database: "connected",
     });
   });
 
-  // get-started
-  router.post("/signup", signUpRoute);
-  router.post("/verify", verifySignupRoute);
-  router.post("/resend-verification-code", resendConfirmationCodeRoute);
-  router.post("/signin", signInRoute);
-  router.post("/forgot-password", forgotPasswordRoute);
-  router.post("/confirm-forgot-password", confirmForgotPasswordRoute);
-  router.post("/refresh-session", refreshSessionRoute);
-  // router.post("/register-face", registerFaceRoute);
-  // router.post("/verify-face", verifyFaceRoute);
-  router.get("/logout", sessionMiddleware, logoutRoute);
+  router.post("/auth/signup", signUpRoute);
+  router.post("/auth/verify", verifySignupRoute);
+  router.post("/auth/resend-verification-code", resendConfirmationCodeRoute);
+  router.post("/auth/signin", signInRoute);
+  router.post("/auth/forgot-password", forgotPasswordRoute);
+  router.post("/auth/confirm-forgot-password", confirmForgotPasswordRoute);
+  router.post("/auth/refresh-session", refreshSessionRoute);
+  router.get("/auth/logout", sessionMiddleware, logoutRoute);
 
   // folder routes
-  router.post("/create-folder", sessionMiddleware, createFolderRoute);
-  router.get("/get-all-folders", getFolderContentsRoute);
-  router.get("/get-folder", getFolderRoute);
-  router.put("/rename-folder", renameFolderRoute);
-  router.delete("/delete-folder", deleteFolderRoute);
-  router.put("/restore-folder", restoreFolderRoute);
+  router.post("/folder/create", sessionMiddleware, createFolderRoute);
+  router.get("/folder/all", getFolderContentsRoute);
+  router.put("/folder/rename", renameFolderRoute);
+  router.delete("/folder/delete", deleteFolderRoute);
+  router.put("/folder/restore", restoreFolderRoute);
+  router.get("/folder/:folderId", fetchFolderContentRoute);
 
-  // image upload
-  router.post("/initiate-image-upload", initiateImageUploadRoute);
-  router.put("/confirm-image-upload", confirmImageUploadRoute);
-
-  // Add photos to a bucket
+  // image routes
+  router.post("/image/initiate-upload", initiateImageUploadRoute);
+  router.put("/image/confirm-upload", confirmImageUploadRoute);
   router.post(
-    "/generate-presignedurl",
+    "/image/generate-presignedurl",
     sessionMiddleware,
     generatePreSignedURLRoute
   );
+  router.get("/images", fetchUploadedImagesRoute);
 
-  // Rekognition
-  router.post("/create-albums", sessionMiddleware, createAlbumsRoute);
+  // Job routes
   router.post(
-    "/feature/facial-rekognition/start",
+    "/job/feature/facial-rekognition/start",
     sessionMiddleware,
     startImageProcessingJobRoute
   );
+  router.get("/job/job-status/:jobId", sessionMiddleware, getJobStatusRoute);
 
-  // Job status monitoring
-  router.get("/job-status/:jobId", sessionMiddleware, getJobStatusRoute);
-
-  // images
-  router.get("/fetch-uploaded-images", fetchUploadedImagesRoute);
-
-  // Fetch folder content
-  router.get("/fetch-folder-content", fetchFolderContentRoute);
-
-  // Albums API's
-  router.get("/fetch-albums", fetchAlbumsRoute);
+  // Albums routes
+  router.get("/albums", fetchAlbumsRoute);
+  router.get("/album/:id", getAlbumByIdRoute);
 
   return router;
 };
