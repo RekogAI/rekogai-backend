@@ -87,6 +87,7 @@ class AlbumModel {
               "imageId",
               "faceRecordDetails",
               "faceThumbnail",
+              "faceThumbnailS3Key",
             ],
             required: true,
           },
@@ -98,13 +99,16 @@ class AlbumModel {
         AlbumExceptions.throwAlbumNotFoundError();
       }
 
-      // Fetch images using imageIds array
+      const albumData = album.toJSON();
+
+      const imageIds = Array.from(albumData.imageIds || [], (x) => x);
+
       let imagesWithPresignedUrls = [];
-      if (album.imageIds && album.imageIds.length > 0) {
+      if (imageIds && Array.isArray(imageIds) && imageIds.length > 0) {
         const images = await models.Image.findAll({
           where: {
             imageId: {
-              [Op.in]: album.imageIds,
+              [Op.in]: imageIds,
             },
             userId,
           },
@@ -114,6 +118,7 @@ class AlbumModel {
             "fileLocationInS3",
             "fileMIMEtype",
             "fileSizeInKiloBytes",
+            "thumbnailS3Key",
             "createdAt",
           ],
         });
@@ -122,10 +127,10 @@ class AlbumModel {
         imagesWithPresignedUrls = await Promise.all(
           images.map(async (image) => {
             const imageData = image.toJSON();
-            if (imageData.fileLocationInS3) {
+            if (imageData.thumbnailS3Key) {
               const presignedUrl = await generatePresignedUrl({
                 operation: "get",
-                key: imageData.fileLocationInS3,
+                key: imageData.thumbnailS3Key,
                 expiresIn: 86400, // 24 hours
               });
               imageData.presignedUrl = presignedUrl;
@@ -135,13 +140,22 @@ class AlbumModel {
         );
       }
 
+      // face thumbnail presigned URL
+      if (albumData.face && albumData.face.faceThumbnailS3Key) {
+        albumData.face.faceThumbnailUrl = await generatePresignedUrl({
+          operation: "get",
+          key: albumData.face.faceThumbnailS3Key,
+          expiresIn: 86400, // 24 hours
+        });
+      }
+
       const albumWithPresignedUrls = {
-        ...album.toJSON(),
+        ...albumData,
         images: imagesWithPresignedUrls,
       };
 
       Logger.info(
-        `Retrieved album ${albumId} with ${album.faces.length} faces and ${imagesWithPresignedUrls.length} images for user ${userId}`
+        `Retrieved album ${albumId} with ${album?.face?.length} faces and ${imagesWithPresignedUrls.length} images for user ${userId}`
       );
 
       return albumWithPresignedUrls;
